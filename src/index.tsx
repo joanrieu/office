@@ -1,8 +1,8 @@
 import "minireset.css";
-import { observable, autorun } from "mobx";
+import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React from "react";
+import React, { useRef, useState } from "react";
 import { render } from "react-dom";
 import "uuid";
 import { v1 } from "uuid";
@@ -145,7 +145,7 @@ namespace Office {
         }}
       >
         <h1 style={{ fontSize: "2em" }}>
-          <NodeName node={node} />
+          <NodeName node={node} editable />
         </h1>
         {children}
       </div>
@@ -181,8 +181,26 @@ namespace Office {
     </a>
   );
 
-  const NodeName = ({ node }: { node: Node }) => (
-    <>{node.data.name || <em>Untitled</em>}</>
+  const NodeName = observer(
+    ({ node, editable = false }: { node: Node; editable?: boolean }) => {
+      if (editable) {
+        return (
+          <input
+            type="text"
+            className="clean-input"
+            value={node.data.name}
+            onChange={(event) => {
+              node.data.name = event.target.value;
+            }}
+            style={{
+              margin: "0.2em 0",
+            }}
+          />
+        );
+      } else {
+        return <span>{node.data.name || <em>Untitled</em>}</span>;
+      }
+    }
   );
 
   const View = ({ node }: { node: Node }) => {
@@ -226,7 +244,9 @@ namespace Office {
     </a>
   ));
 
-  const OutlineView = () => <div>{/* TODO */}</div>;
+  const OutlineView = observer(({ node }: { node: Node<OutlineData> }) => (
+    <div>{/* TODO */}</div>
+  ));
 
   render(<App />, document.getElementById("app"));
 
