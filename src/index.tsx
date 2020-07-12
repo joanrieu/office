@@ -175,32 +175,79 @@ namespace Office {
       </>
     );
 
-  const OverviewItem = ({ node }: { node: Node }) => (
-    <a href={"#/" + node.id} className="clean-link">
-      <NodeName node={node} />
-    </a>
-  );
+  const OverviewItem = ({ node }: { node: Node }) => {
+    const active = node === ui.node;
+    return (
+      <a
+        href={"#/" + node.id}
+        className="clean-link"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "2em auto",
+          backgroundColor: active ? "#ccc" : undefined,
+        }}
+      >
+        <NodeIcon node={node} />
+        <NodeName node={node} />
+      </a>
+    );
+  };
 
   const NodeName = observer(
     ({ node, editable = false }: { node: Node; editable?: boolean }) => {
+      const untitled = "Untitled";
       if (editable) {
         return (
           <input
             type="text"
             className="clean-input"
             value={node.data.name}
+            placeholder={untitled}
             onChange={(event) => {
               node.data.name = event.target.value;
             }}
             style={{
               margin: "0.2em 0",
+              fontStyle: node.data.name ? undefined : "italic",
             }}
           />
         );
       } else {
-        return <span>{node.data.name || <em>Untitled</em>}</span>;
+        return (
+          <span
+            style={{
+              fontStyle: node.data.name ? undefined : "italic",
+            }}
+          >
+            {node.data.name || untitled}
+          </span>
+        );
       }
     }
+  );
+
+  const NodeIcon = ({
+    node,
+    large = false,
+  }: {
+    node: Node;
+    large?: boolean;
+  }) => (
+    <span
+      style={{
+        placeSelf: "center",
+        lineHeight: 0,
+        fontSize: large ? "150%" : undefined,
+      }}
+    >
+      <span
+        style={{
+          fontSize: node.is_folder() ? "100%" : "125%",
+        }}
+      >
+        {node.is_folder() ? "🖿" : "🗎"}
+      </span>
+    </span>
   );
 
   const View = ({ node }: { node: Node }) => {
@@ -231,15 +278,7 @@ namespace Office {
 
   const FolderViewItem = observer(({ node }: { node: Node }) => (
     <a href={"#/" + node.id} className="FolderViewItem">
-      <span
-        style={{
-          placeSelf: "center",
-          fontSize: "150%",
-          lineHeight: 0,
-        }}
-      >
-        {node.is_folder() ? "🖿" : "🗎"}
-      </span>
+      <NodeIcon node={node} large />
       <NodeName node={node} />
     </a>
   ));
