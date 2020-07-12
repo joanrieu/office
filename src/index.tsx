@@ -2,7 +2,7 @@ import "minireset.css";
 import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { render } from "react-dom";
 import "uuid";
 import { v1 } from "uuid";
@@ -103,54 +103,62 @@ namespace Office {
 
   const ui = new UI();
 
-  const App = observer(() => <View node={ui.node} />);
+  const App = observer(() => (
+    <Layout>
+      <View node={ui.node} />
+    </Layout>
+  ));
 
-  const Layout = ({
-    node,
-    children,
-  }: {
-    node: Node;
-    children: React.ReactNode;
-  }) => (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "15em auto",
-      }}
-    >
+  const untitled = "Untitled";
+
+  const Layout = observer(({ children }: { children: React.ReactNode }) => {
+    const name = ui.node.data.name || untitled;
+    const titleSeparator = " - ";
+    useEffect(() => {
+      document.title =
+        name + titleSeparator + document.title.split(titleSeparator).pop()!;
+    }, [name]);
+    return (
       <div
-        className="ui-panel"
         style={{
-          borderRightWidth: "1px",
+          display: "grid",
+          gridTemplateColumns: "15em auto",
         }}
       >
         <div
+          className="ui-panel"
           style={{
-            padding: "0.5em",
-            opacity: 0.2,
-            fontSize: "2em",
-            fontWeight: "bold",
-            letterSpacing: "0.3em",
-            textAlign: "center",
-            textTransform: "uppercase",
+            borderRightWidth: "1px",
           }}
         >
-          Office
+          <div
+            style={{
+              padding: "0.5em",
+              opacity: 0.2,
+              fontSize: "2em",
+              fontWeight: "bold",
+              letterSpacing: "0.3em",
+              textAlign: "center",
+              textTransform: "uppercase",
+            }}
+          >
+            Office
+          </div>
+          <Overview />
         </div>
-        <Overview />
+        <div
+          style={{
+            padding: "5vmin",
+          }}
+        >
+          <h1 style={{ fontSize: "2em" }}>
+            <NodeName node={ui.node} editable />
+          </h1>
+          {children}
+        </div>
       </div>
-      <div
-        style={{
-          padding: "5vmin",
-        }}
-      >
-        <h1 style={{ fontSize: "2em" }}>
-          <NodeName node={node} editable />
-        </h1>
-        {children}
-      </div>
-    </div>
-  );
+    );
+  });
 
   const Overview = ({ node }: { node?: Node }) =>
     node ? (
@@ -190,7 +198,6 @@ namespace Office {
 
   const NodeName = observer(
     ({ node, editable = false }: { node: Node; editable?: boolean }) => {
-      const untitled = "Untitled";
       if (editable) {
         return (
           <input
@@ -258,7 +265,7 @@ namespace Office {
 
   const FolderView = observer(({ node }: { node: Node<FolderData> }) => {
     return (
-      <Layout node={node}>
+      <>
         <Toolbar>
           <button onClick={() => office.create_folder(node)}>New Folder</button>
           <button onClick={() => office.create_outline(node)}>
@@ -278,7 +285,7 @@ namespace Office {
             (empty)
           </span>
         )}
-      </Layout>
+      </>
     );
   });
 
