@@ -213,6 +213,15 @@ namespace Office {
 
   const FolderViewItem = observer(({ node }: { node: Node }) => (
     <a href={"#/" + node.id} className="FolderViewItem">
+      <span
+        style={{
+          placeSelf: "center",
+          fontSize: "150%",
+          lineHeight: 0,
+        }}
+      >
+        {node.is_folder() ? "🖿" : "🗎"}
+      </span>
       <NodeName node={node} />
     </a>
   ));

@@ -59,9 +59,12 @@ button {
 
 .FolderViewItem {
   @extend .clean-link;
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
+  display: grid;
+  grid-template-columns: 1em 1fr;
+  grid-gap: 1em;
+  padding: 0.5em 1em;
+
+  &:hover {
+    background-color: #ddd;
+  }
 }
