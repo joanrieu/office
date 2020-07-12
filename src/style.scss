@@ -16,12 +16,12 @@ body {
   background-color: #eee;
 }
 
-@mixin ui-font {
+.ui-font {
   font-size: 11pt;
 }
 
 .ui-panel {
-  @include ui-font();
+  @extend .ui-font;
   padding: 1vmin 2vmin;
   color: #333;
   background-color: #ddd;
@@ -29,7 +29,7 @@ body {
 }
 
 button {
-  @include ui-font();
+  @extend .ui-font;
   background-color: #ddd;
   border: 1px solid #bbb;
   border-radius: 2px;
@@ -55,6 +55,18 @@ button {
 .clean-link {
   color: inherit;
   text-decoration: inherit;
+}
+
+.OverviewItem {
+  @extend .clean-link;
+  display: grid;
+  grid-template-columns: 2em auto;
+  border-radius: 2px;
+
+  &.active,
+  &:hover {
+    background-color: #ccc;
+  }
 }
 
 .FolderViewItem {

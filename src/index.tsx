@@ -180,12 +180,7 @@ namespace Office {
     return (
       <a
         href={"#/" + node.id}
-        className="clean-link"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2em auto",
-          backgroundColor: active ? "#ccc" : undefined,
-        }}
+        className={active ? "OverviewItem active" : "OverviewItem"}
       >
         <NodeIcon node={node} />
         <NodeName node={node} />
@@ -237,6 +232,7 @@ namespace Office {
       style={{
         placeSelf: "center",
         lineHeight: 0,
+        marginTop: "-0.1em",
         fontSize: large ? "150%" : undefined,
       }}
     >
@@ -272,6 +268,16 @@ namespace Office {
         {node.children.map((child) => (
           <FolderViewItem key={child.id} node={child} />
         ))}
+        {node.children.length === 0 && (
+          <span
+            className="ui-font"
+            style={{
+              color: "#bbb",
+            }}
+          >
+            (empty)
+          </span>
+        )}
       </Layout>
     );
   });
