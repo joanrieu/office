@@ -87,3 +87,36 @@ button {
   border: inherit;
   font: inherit;
 }
+
+.OutlineViewItems {
+  grid-area: children;
+
+  > .item {
+    display: grid;
+    grid-template-areas: "bullet text" "empty text" "empty note" "empty children";
+    grid-template-columns: 1.5em 1fr;
+    grid-template-rows: 1.5em auto auto auto;
+
+    > .bullet {
+      grid-area: bullet;
+      place-self: center;
+      width: 8px;
+      height: 8px;
+      border-radius: 3px;
+      background-color: #bbb;
+    }
+
+    > .name {
+      grid-area: text;
+      padding: 0.2em;
+      margin: -0.2em -0.2em 0 0;
+      white-space: pre-wrap;
+    }
+
+    > .paragraph {
+      grid-area: note;
+      font-size: 11pt;
+      white-space: pre-wrap;
+    }
+  }
+}

@@ -2,7 +2,7 @@ import "minireset.css";
 import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { render } from "react-dom";
 import "uuid";
 import { v1 } from "uuid";
@@ -86,7 +86,7 @@ namespace Office {
       return node;
     }
 
-    create_outline(parent: Node<FolderData>) {
+    create_outline(parent: Node<FolderData | OutlineData>) {
       const node = Node.create("outline");
       parent.children.push(node);
       return node;
@@ -104,190 +104,182 @@ namespace Office {
   const ui = new UI();
 
   const App = observer(() => (
-    <Layout>
+    <Layout node={ui.node}>
       <View node={ui.node} />
     </Layout>
   ));
 
   const untitled = "Untitled";
 
-  const Layout = observer(({ children }: { children: React.ReactNode }) => {
-    const name = ui.node.data.name || untitled;
-    const titleSeparator = " - ";
-    useEffect(() => {
-      document.title =
-        name + titleSeparator + document.title.split(titleSeparator).pop()!;
-    }, [name]);
-    return (
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "15em auto",
-        }}
-      >
+  const Layout = observer(
+    ({ node, children }: { node: Node; children: React.ReactNode }) => {
+      const name = node.data.name || untitled;
+      const titleSeparator = " - ";
+      useEffect(() => {
+        document.title =
+          name + titleSeparator + document.title.split(titleSeparator).pop()!;
+      }, [name]);
+      return (
         <div
-          className="ui-panel"
           style={{
-            borderRightWidth: "1px",
+            display: "grid",
+            gridTemplateColumns: "15em auto",
           }}
         >
           <div
+            className="ui-panel"
             style={{
-              padding: "0.5em",
-              opacity: 0.2,
-              fontSize: "2em",
-              fontWeight: "bold",
-              letterSpacing: "0.3em",
-              textAlign: "center",
-              textTransform: "uppercase",
+              borderRightWidth: "1px",
             }}
           >
-            Office
+            <div
+              style={{
+                padding: "0.5em",
+                opacity: 0.2,
+                fontSize: "2em",
+                fontWeight: "bold",
+                letterSpacing: "0.3em",
+                textAlign: "center",
+                textTransform: "uppercase",
+              }}
+            >
+              Office
+            </div>
+            <Overview activeNode={node} />
           </div>
-          <Overview />
+          <div
+            style={{
+              padding: "5vmin",
+            }}
+          >
+            <h1 style={{ fontSize: "2em" }}>
+              <NodeName node={node} editable />
+            </h1>
+            {children}
+          </div>
         </div>
-        <div
+      );
+    }
+  );
+
+  const Overview = observer(
+    ({ node, activeNode }: { node?: Node; activeNode: Node }) =>
+      node ? (
+        <ul
           style={{
-            padding: "5vmin",
+            borderLeft: "1px solid #bbb",
+            marginLeft: ".5em",
+            paddingLeft: ".5em",
           }}
         >
-          <h1 style={{ fontSize: "2em" }}>
-            <NodeName node={ui.node} editable />
-          </h1>
-          {children}
-        </div>
-      </div>
-    );
-  });
+          {node.children.map((child) => (
+            <li key={child.id}>
+              <OverviewItem node={child} activeNode={activeNode} />
+              {child.is_folder() && (
+                <Overview node={child} activeNode={activeNode} />
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          <OverviewItem node={office.root} activeNode={activeNode} />
+          <Overview node={office.root} activeNode={activeNode} />
+        </>
+      )
+  );
 
-  const Overview = ({ node }: { node?: Node }) =>
-    node ? (
-      <ul
-        style={{
-          borderLeft: "1px solid #bbb",
-          marginLeft: ".5em",
-          paddingLeft: ".5em",
-        }}
-      >
-        {node.children.map((child) => (
-          <li key={child.id}>
-            <OverviewItem node={child} />
-            <Overview node={child} />
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <>
-        <OverviewItem node={office.root} />
-        <Overview node={office.root} />
-      </>
-    );
-
-  const OverviewItem = ({ node }: { node: Node }) => {
-    const active = node === ui.node;
-    return (
+  const OverviewItem = observer(
+    ({ node, activeNode }: { node: Node; activeNode: Node }) => (
       <a
         href={"#/" + node.id}
-        className={active ? "OverviewItem active" : "OverviewItem"}
+        className={node === activeNode ? "OverviewItem active" : "OverviewItem"}
       >
         <NodeIcon node={node} />
         <NodeName node={node} />
       </a>
-    );
-  };
+    )
+  );
 
   const NodeName = observer(
-    ({ node, editable = false }: { node: Node; editable?: boolean }) => {
-      if (editable) {
-        return (
-          <input
-            type="text"
-            className="clean-input"
-            value={node.data.name}
-            placeholder={untitled}
-            onChange={(event) => {
-              node.data.name = event.target.value;
-            }}
-            style={{
-              margin: "0.2em 0",
-              fontStyle: node.data.name ? undefined : "italic",
-            }}
-          />
-        );
-      } else {
-        return (
-          <span
-            style={{
-              fontStyle: node.data.name ? undefined : "italic",
-            }}
-          >
-            {node.data.name || untitled}
-          </span>
-        );
-      }
-    }
+    ({ node, editable = false }: { node: Node; editable?: boolean }) =>
+      editable ? (
+        <input
+          type="text"
+          className="clean-input"
+          value={node.data.name}
+          placeholder={untitled}
+          onChange={(event) => {
+            node.data.name = event.target.value;
+          }}
+          style={{
+            margin: "0.2em 0",
+            fontStyle: node.data.name ? undefined : "italic",
+          }}
+        />
+      ) : (
+        <span
+          style={{
+            fontStyle: node.data.name ? undefined : "italic",
+          }}
+        >
+          {node.data.name || untitled}
+        </span>
+      )
   );
 
-  const NodeIcon = ({
-    node,
-    large = false,
-  }: {
-    node: Node;
-    large?: boolean;
-  }) => (
-    <span
-      style={{
-        placeSelf: "center",
-        lineHeight: 0,
-        marginTop: "-0.1em",
-        fontSize: large ? "150%" : undefined,
-      }}
-    >
+  const NodeIcon = observer(
+    ({ node, large = false }: { node: Node; large?: boolean }) => (
       <span
         style={{
-          fontSize: node.is_folder() ? "100%" : "125%",
+          placeSelf: "center",
+          lineHeight: 0,
+          marginTop: "-0.1em",
+          fontSize: large ? "150%" : undefined,
         }}
       >
-        {node.is_folder() ? "🖿" : "🗎"}
+        <span
+          style={{
+            fontSize: node.is_folder() ? "100%" : "125%",
+          }}
+        >
+          {node.is_folder() ? "🖿" : "🗎"}
+        </span>
       </span>
-    </span>
+    )
   );
 
-  const View = ({ node }: { node: Node }) => {
+  const View = observer(({ node }: { node: Node }) => {
     if (node.is_folder()) return <FolderView node={node} />;
     if (node.is_outline()) return <OutlineView node={node} />;
     return null;
-  };
-
-  const Toolbar = ({ children }: { children: React.ReactNode }) => (
-    <div className="Toolbar">{children}</div>
-  );
-
-  const FolderView = observer(({ node }: { node: Node<FolderData> }) => {
-    return (
-      <>
-        <Toolbar>
-          <button onClick={() => office.create_folder(node)}>New Folder</button>
-          <button onClick={() => office.create_outline(node)}>
-            New Outline
-          </button>
-        </Toolbar>
-        {node.children.map((child) => (
-          <FolderViewItem key={child.id} node={child} />
-        ))}
-        {node.children.length === 0 && (
-          <span
-            className="ui-font"
-            style={{
-              color: "#bbb",
-            }}
-          >
-            (empty)
-          </span>
-        )}
-      </>
-    );
   });
+
+  const Toolbar = observer(({ children }: { children: React.ReactNode }) => (
+    <div className="Toolbar">{children}</div>
+  ));
+
+  const FolderView = observer(({ node }: { node: Node<FolderData> }) => (
+    <>
+      <Toolbar>
+        <button onClick={() => office.create_folder(node)}>New Folder</button>
+        <button onClick={() => office.create_outline(node)}>New Outline</button>
+      </Toolbar>
+      {node.children.map((child) => (
+        <FolderViewItem key={child.id} node={child} />
+      ))}
+      {node.children.length === 0 && (
+        <span
+          className="ui-font"
+          style={{
+            color: "#bbb",
+          }}
+        >
+          (empty)
+        </span>
+      )}
+    </>
+  ));
 
   const FolderViewItem = observer(({ node }: { node: Node }) => (
     <a href={"#/" + node.id} className="FolderViewItem">
@@ -296,9 +288,64 @@ namespace Office {
     </a>
   ));
 
-  const OutlineView = observer(({ node }: { node: Node<OutlineData> }) => (
-    <div>{/* TODO */}</div>
-  ));
+  const OutlineView = observer(({ node }: { node: Node<OutlineData> }) => {
+    if (!node.children.length) office.create_outline(node);
+    return <OutlineViewItems items={node.children as Node<OutlineData>[]} />;
+  });
+
+  const OutlineViewItems = observer(
+    ({ items }: { items: Node<OutlineData>[] }) => (
+      <ul className="OutlineViewItems">
+        {items.map((item) => (
+          <li key={item.id} className="item">
+            <div className="bullet"></div>
+            <EditableDiv
+              object={item.data as { name: string }}
+              property="name"
+              className="name"
+            />
+            <EditableDiv
+              object={item.data as { paragraph: string }}
+              property="paragraph"
+              className="paragraph"
+            />
+            <OutlineViewItems items={item.children as Node<OutlineData>[]} />
+          </li>
+        ))}
+      </ul>
+    )
+  );
+
+  // DO NOT MAKE THIS COMPONENT AN OBSERVER
+  const EditableDiv = React.memo(
+    <T extends string>({
+      object,
+      property,
+      ...props
+    }: {
+      object: Record<T, string>;
+      property: T;
+    } & React.DetailedHTMLProps<
+      React.HTMLAttributes<HTMLDivElement>,
+      HTMLDivElement
+    >) => (
+      <div
+        contentEditable
+        ref={(div) => {
+          if (div) {
+            div.innerText = object[property];
+          }
+        }}
+        onInput={(event) => {
+          const div = event.target as HTMLDivElement;
+          object[property] = div.innerText;
+        }}
+        {...props}
+      >
+        {/* UNMANAGED CONTENT */}
+      </div>
+    )
+  );
 
   render(<App />, document.getElementById("app"));
 
@@ -314,4 +361,6 @@ namespace Office {
   readUrlHash();
   window.addEventListener("hashchange", readUrlHash);
   autorun(writeUrlHash);
+
+  ui.node = office.create_outline(office.root);
 }
