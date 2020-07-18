@@ -2,7 +2,7 @@ import "minireset.css";
 import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React, { useEffect, useRef, useLayoutEffect } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { render } from "react-dom";
 import "uuid";
 import { v1 } from "uuid";
@@ -80,15 +80,26 @@ namespace Office {
       return null;
     }
 
+    find_nearest_node(node: Node, directionOffset: -1 | 1): Node | null {
+      const parent = this.find_parent(node);
+      if (!parent) return null;
+      const index = parent.children.indexOf(node) + directionOffset;
+      if (index in parent.children) {
+        return parent.children[index];
+      } else {
+        return this.find_nearest_node(parent, directionOffset);
+      }
+    }
+
     create_folder(parent: Node<FolderData>) {
       const node = Node.create("folder");
       parent.children.push(node);
       return node;
     }
 
-    create_outline(parent: Node<FolderData | OutlineData>) {
+    create_outline(parent: Node<FolderData | OutlineData>, index = 0) {
       const node = Node.create("outline");
-      parent.children.push(node);
+      parent.children.splice(index, 0, node);
       return node;
     }
   }
@@ -99,6 +110,7 @@ namespace Office {
 
   class UI {
     @observable node: Node = office.root;
+    @observable focus: string | null = null;
   }
 
   const ui = new UI();
@@ -290,42 +302,77 @@ namespace Office {
 
   const OutlineView = observer(({ node }: { node: Node<OutlineData> }) => {
     if (!node.children.length) office.create_outline(node);
-    return <OutlineViewItems items={node.children as Node<OutlineData>[]} />;
+    return <OutlineViewItems nodes={node.children as Node<OutlineData>[]} />;
   });
 
   const OutlineViewItems = observer(
-    ({ items }: { items: Node<OutlineData>[] }) => {
-      const ref = useRef<HTMLTextAreaElement | null>(null);
+    ({ nodes }: { nodes: Node<OutlineData>[] }) => (
+      <ul className="OutlineViewItems">
+        {nodes.map((node) => (
+          <OutlineViewItem key={node.id} node={node} />
+        ))}
+      </ul>
+    )
+  );
 
+  const OutlineViewItem = observer(
+    ({
+      node,
+      moveFocus,
+    }: {
+      node: Node<OutlineData>;
+      moveFocus: (offset: -1 | 1) => void;
+    }) => {
+      const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
       useLayoutEffect(() => {
-        const el = ref.current;
+        const el = textAreaRef.current;
         if (el) {
           el.style.height = "0";
           el.style.height = el.scrollHeight + "px";
         }
-      });
+      }, []);
 
       return (
-        <ul className="OutlineViewItems">
-          {items.map((item) => (
-            <li key={item.id} className="item">
-              <div className="bullet"></div>
-              <input
-                type="text"
-                className="name clean-input"
-                value={item.data.name}
-                onChange={(event) => (item.data.name = event.target.value)}
-              />
-              <textarea
-                ref={ref}
-                className="paragraph clean-input"
-                value={item.data.paragraph}
-                onChange={(event) => (item.data.paragraph = event.target.value)}
-              ></textarea>
-              <OutlineViewItems items={item.children as Node<OutlineData>[]} />
-            </li>
-          ))}
-        </ul>
+        <li key={node.id} className="item">
+          <div className="bullet" />
+          <input
+            type="text"
+            className="name clean-input"
+            value={node.data.name}
+            onChange={(event) => (node.data.name = event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                const parent = office.find_parent(node) as Node<OutlineData>;
+                const offset = event.shiftKey ? 0 : 1;
+                const sibling = office.create_outline(
+                  parent,
+                  parent.children.indexOf(node) + offset
+                );
+                ui.focus = sibling.id;
+              } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                const directionOffset = event.key === "ArrowUp" ? -1 : 1;
+                const nearest = office.find_nearest_node(node, directionOffset);
+                if (nearest?.is_outline()) {
+                  ui.focus = nearest.id;
+                }
+              }
+            }}
+            data-focus={node.id}
+            onFocus={() => (ui.focus = node.id)}
+            onBlur={() => {
+              if (ui.focus === node.id) ui.focus = null;
+            }}
+            autoFocus={ui.focus === node.id}
+          />
+          <textarea
+            ref={textAreaRef}
+            className="paragraph clean-input"
+            value={node.data.paragraph}
+            onChange={(event) => (node.data.paragraph = event.target.value)}
+          />
+          <OutlineViewItems nodes={node.children as Node<OutlineData>[]} />
+        </li>
       );
     }
   );
@@ -344,6 +391,16 @@ namespace Office {
   readUrlHash();
   window.addEventListener("hashchange", readUrlHash);
   autorun(writeUrlHash);
+
+  function focusFocus() {
+    const el = document.querySelector<HTMLElement>(
+      `[data-focus="${ui.focus}"]`
+    );
+    if (el) el.focus();
+    console.log(el);
+  }
+
+  autorun(focusFocus);
 
   ui.node = office.create_outline(office.root);
 }
