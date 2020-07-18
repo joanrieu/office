@@ -83,11 +83,31 @@ namespace Office {
     find_nearest_node(node: Node, directionOffset: -1 | 1): Node | null {
       const parent = this.find_parent(node);
       if (!parent) return null;
-      const index = parent.children.indexOf(node) + directionOffset;
-      if (index in parent.children) {
-        return parent.children[index];
+      const index = parent.children.indexOf(node);
+      if (directionOffset < 0) {
+        // going up
+        if (index === 0) return parent;
+        // find bottom child of previous sibling
+        let nearest = parent.children[index - 1];
+        while (nearest.children.length) {
+          nearest = nearest.children[nearest.children.length - 1];
+        }
+        return nearest;
       } else {
-        return this.find_nearest_node(parent, directionOffset);
+        // going down
+        if (node.children.length > 0) return node.children[0];
+        // escape the current subtree
+        let deadEnd = node;
+        let deadEndParent = parent;
+        let deadEndIndex = index;
+        while (deadEndIndex === deadEndParent.children.length - 1) {
+          deadEnd = deadEndParent;
+          const parent = office.find_parent(deadEnd);
+          if (!parent) return null;
+          deadEndParent = parent;
+          deadEndIndex = deadEndParent.children.indexOf(deadEnd);
+        }
+        return deadEndParent.children[deadEndIndex + 1];
       }
     }
 
@@ -213,6 +233,18 @@ namespace Office {
                 <kbd>Ctrl-Shift-Enter</kbd>
               </td>
               <td>Go to note (and back)</td>
+            </tr>
+            <tr>
+              <td>
+                <kbd>Tab</kbd>
+              </td>
+              <td>Indent item</td>
+            </tr>
+            <tr>
+              <td>
+                <kbd>Shift-Tab</kbd>
+              </td>
+              <td>Unindent item</td>
             </tr>
           </>
         )}
@@ -409,6 +441,29 @@ namespace Office {
               if (nearest?.is_outline()) {
                 ui.focus = nearest.id + ":name";
               }
+            } else if (event.shiftKey && event.key === "Tab") {
+              const parent = office.find_parent(node);
+              if (parent && parent.is_outline()) {
+                const grandParent = office.find_parent(parent);
+                if (grandParent && grandParent.is_outline()) {
+                  parent.children.splice(parent.children.indexOf(node), 1);
+                  grandParent.children.splice(
+                    grandParent.children.indexOf(parent) + 1,
+                    0,
+                    node
+                  );
+                }
+              }
+            } else if (event.key === "Tab") {
+              const parent = office.find_parent(node);
+              if (parent && parent.is_outline()) {
+                const currentOffset = parent.children.indexOf(node);
+                if (currentOffset > 0) {
+                  const previousSibling = parent.children[currentOffset - 1];
+                  parent.children.splice(currentOffset, 1);
+                  previousSibling.children.push(node);
+                }
+              }
             } else {
               return;
             }
@@ -427,12 +482,6 @@ namespace Office {
             onKeyDown={(event) => {
               if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
                 ui.focus = node.id + ":name";
-              } else if (event.key === "Backspace" && !node.data.name) {
-                const nearest = office.find_nearest_node(node, -1);
-                if (nearest?.is_outline()) {
-                  ui.focus = nearest.id + ":name";
-                }
-                office.delete_node(node);
               } else {
                 return;
               }
