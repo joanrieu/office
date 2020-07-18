@@ -2,7 +2,7 @@ import "minireset.css";
 import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useLayoutEffect } from "react";
 import { render } from "react-dom";
 import "uuid";
 import { v1 } from "uuid";
@@ -299,51 +299,21 @@ namespace Office {
         {items.map((item) => (
           <li key={item.id} className="item">
             <div className="bullet"></div>
-            <EditableDiv
-              object={item.data as { name: string }}
-              property="name"
-              className="name"
+            <input
+              type="text"
+              className="name clean-input"
+              value={item.data.name}
+              onChange={(event) => (item.data.name = event.target.value)}
             />
-            <EditableDiv
-              object={item.data as { paragraph: string }}
-              property="paragraph"
-              className="paragraph"
-            />
+            <textarea
+              className="paragraph clean-input"
+              value={item.data.paragraph}
+              onChange={(event) => (item.data.paragraph = event.target.value)}
+            ></textarea>
             <OutlineViewItems items={item.children as Node<OutlineData>[]} />
           </li>
         ))}
       </ul>
-    )
-  );
-
-  // DO NOT MAKE THIS COMPONENT AN OBSERVER
-  const EditableDiv = React.memo(
-    <T extends string>({
-      object,
-      property,
-      ...props
-    }: {
-      object: Record<T, string>;
-      property: T;
-    } & React.DetailedHTMLProps<
-      React.HTMLAttributes<HTMLDivElement>,
-      HTMLDivElement
-    >) => (
-      <div
-        contentEditable
-        ref={(div) => {
-          if (div) {
-            div.innerText = object[property];
-          }
-        }}
-        onInput={(event) => {
-          const div = event.target as HTMLDivElement;
-          object[property] = div.innerText;
-        }}
-        {...props}
-      >
-        {/* UNMANAGED CONTENT */}
-      </div>
     )
   );
 
