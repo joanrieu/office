@@ -102,6 +102,11 @@ namespace Office {
       parent.children.splice(index, 0, node);
       return node;
     }
+
+    delete_node(node: Node) {
+      const parent = this.find_parent(node);
+      parent?.children.splice(parent.children.indexOf(node), 1);
+    }
   }
 
   const office = new Office();
@@ -339,7 +344,10 @@ namespace Office {
   ));
 
   const OutlineView = observer(({ node }: { node: Node<OutlineData> }) => {
-    if (!node.children.length) office.create_outline(node);
+    if (!node.children.length) {
+      const child = office.create_outline(node);
+      setTimeout(() => (ui.focus = child.id + ":name"));
+    }
     return <OutlineViewItems nodes={node.children as Node<OutlineData>[]} />;
   });
 
@@ -373,7 +381,6 @@ namespace Office {
           onChange={(event) => (node.data.name = event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
-              event.preventDefault();
               if (event.ctrlKey && event.shiftKey) {
                 ui.focus = node.id + ":paragraph";
               } else {
@@ -385,13 +392,22 @@ namespace Office {
                 );
                 ui.focus = sibling.id + ":name";
               }
+            } else if (event.key === "Backspace" && !node.data.name) {
+              const nearest = office.find_nearest_node(node, -1);
+              if (nearest?.is_outline()) {
+                ui.focus = nearest.id + ":name";
+              }
+              office.delete_node(node);
             } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
               const directionOffset = event.key === "ArrowUp" ? -1 : 1;
               const nearest = office.find_nearest_node(node, directionOffset);
               if (nearest?.is_outline()) {
                 ui.focus = nearest.id + ":name";
               }
+            } else {
+              return;
             }
+            event.preventDefault();
           }}
           data-focus={node.id + ":name"}
           onFocus={() => (ui.focus = node.id + ":name")}
@@ -405,7 +421,16 @@ namespace Office {
           onKeyDown={(event) => {
             if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
               ui.focus = node.id + ":name";
+            } else if (event.key === "Backspace" && !node.data.name) {
+              const nearest = office.find_nearest_node(node, -1);
+              if (nearest?.is_outline()) {
+                ui.focus = nearest.id + ":name";
+              }
+              office.delete_node(node);
+            } else {
+              return;
             }
+            event.preventDefault();
           }}
           data-focus={node.id + ":paragraph"}
           onFocus={() => (ui.focus = node.id + ":paragraph")}
