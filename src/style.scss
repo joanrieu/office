@@ -44,6 +44,28 @@ button {
   }
 }
 
+.Layout {
+  display: grid;
+  grid-template-columns: 15em auto;
+  overflow: auto;
+
+  > :nth-child(1) {
+    @extend .ui-panel;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    border-right-width: 1px;
+  }
+
+  > :nth-child(2) {
+    padding: 5vmin;
+    overflow: auto;
+
+    > h1 {
+      font-size: 2em;
+    }
+  }
+}
+
 .Toolbar {
   margin-bottom: 2em;
 
@@ -55,6 +77,22 @@ button {
 .clean-link {
   color: inherit;
   text-decoration: inherit;
+}
+
+.Logo {
+  padding: 0.5em;
+  opacity: 0.2;
+  font-size: 2em;
+  font-weight: bold;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.OverviewItems {
+  border-left: 1px solid #bbb;
+  margin-left: 1em;
+  padding-left: 0.5em;
 }
 
 .OverviewItem {
@@ -79,6 +117,42 @@ button {
   &:hover {
     background-color: #ddd;
   }
+
+  .NodeIcon {
+    font-size: 150%;
+  }
+}
+
+.EmptyPlaceholder {
+  @extend .ui-font;
+  color: #bbb;
+}
+
+.NodeIcon {
+  place-self: center;
+  line-height: 0;
+  margin-top: -0.1em;
+
+  .folder::before {
+    content: "🖿";
+  }
+
+  .outline::before {
+    content: "🗎";
+    font-size: 125%;
+  }
+}
+
+.NodeName {
+  @extend .clean-input;
+
+  &.untitled {
+    font-style: italic;
+  }
+
+  [type="text"] {
+    margin: 0.2em 0;
+  }
 }
 
 .clean-input {
@@ -92,35 +166,37 @@ button {
 
 .OutlineViewItems {
   grid-area: children;
+}
 
-  > .item {
-    display: grid;
-    grid-template-areas: "bullet text" "empty text" "empty note" "empty children";
-    grid-template-columns: 1.5em 1fr;
-    grid-template-rows: 1.5em auto auto auto;
-    margin-bottom: 0.5em;
+.OutlineViewItem {
+  display: grid;
+  grid-template-areas: "bullet text" "empty text" "empty note" "empty children";
+  grid-template-columns: 1.5em 1fr;
+  grid-template-rows: 1.5em auto auto auto;
+  margin-bottom: 0.5em;
 
-    > .bullet {
-      grid-area: bullet;
-      place-self: center;
-      width: 8px;
-      height: 8px;
-      border-radius: 3px;
-      background-color: #bbb;
-    }
+  > .bullet {
+    grid-area: bullet;
+    place-self: center;
+    width: 8px;
+    height: 8px;
+    border-radius: 3px;
+    background-color: #bbb;
+  }
 
-    > .name {
-      grid-area: text;
-      padding: 0.2em;
-      margin: -0.2em -0.2em 0 0;
-      white-space: pre-wrap;
-    }
+  > .name {
+    @extend .clean-input;
+    grid-area: text;
+    padding: 0.2em;
+    margin: -0.2em -0.2em 0 0;
+    white-space: pre-wrap;
+  }
 
-    > .paragraph {
-      grid-area: note;
-      font-size: 11pt;
-      white-space: pre-wrap;
-    }
+  > .paragraph {
+    @extend .clean-input;
+    grid-area: note;
+    font-size: 11pt;
+    white-space: pre-wrap;
   }
 }
 

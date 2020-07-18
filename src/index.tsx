@@ -1,3 +1,4 @@
+import classNames from "classnames";
 import "minireset.css";
 import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
@@ -160,32 +161,14 @@ namespace Office {
           name + titleSeparator + document.title.split(titleSeparator).pop()!;
       }, [name]);
       return (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "15em auto",
-            overflow: "auto",
-          }}
-        >
-          <div
-            className="ui-panel"
-            style={{
-              display: "grid",
-              gridTemplateRows: "auto 1fr auto",
-              borderRightWidth: "1px",
-            }}
-          >
+        <div className="Layout">
+          <div>
             <Logo />
-            <Overview activeNode={node} />
+            <Overview />
             <KeyboardShortcuts />
           </div>
-          <div
-            style={{
-              padding: "5vmin",
-              overflow: "auto",
-            }}
-          >
-            <h1 style={{ fontSize: "2em" }}>
+          <div>
+            <h1>
               <NodeName node={node} editable />
             </h1>
             {children}
@@ -195,21 +178,7 @@ namespace Office {
     }
   );
 
-  const Logo = () => (
-    <div
-      style={{
-        padding: "0.5em",
-        opacity: 0.2,
-        fontSize: "2em",
-        fontWeight: "bold",
-        letterSpacing: "0.3em",
-        textAlign: "center",
-        textTransform: "uppercase",
-      }}
-    >
-      Office
-    </div>
-  );
+  const Logo = () => <div className="Logo">Office</div>;
 
   const KeyboardShortcuts = observer(() => (
     <table className="KeyboardShortcuts">
@@ -252,92 +221,56 @@ namespace Office {
     </table>
   ));
 
-  const Overview = observer(
-    ({ node, activeNode }: { node?: Node; activeNode: Node }) =>
-      node ? (
-        <ul
-          style={{
-            borderLeft: "1px solid #bbb",
-            marginLeft: ".5em",
-            paddingLeft: ".5em",
-          }}
-        >
-          {node.children.map((child) => (
-            <li key={child.id}>
-              <OverviewItem node={child} activeNode={activeNode} />
-              {child.is_folder() && (
-                <Overview node={child} activeNode={activeNode} />
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div>
-          <OverviewItem node={office.root} activeNode={activeNode} />
-          <Overview node={office.root} activeNode={activeNode} />
-        </div>
-      )
-  );
+  const Overview = observer(() => (
+    <div>
+      <OverviewItem node={office.root} />
+      <OverviewItems node={office.root} />
+    </div>
+  ));
 
-  const OverviewItem = observer(
-    ({ node, activeNode }: { node: Node; activeNode: Node }) => (
-      <a
-        href={"#/" + node.id}
-        className={node === activeNode ? "OverviewItem active" : "OverviewItem"}
-      >
-        <NodeIcon node={node} />
-        <NodeName node={node} />
-      </a>
-    )
-  );
+  const OverviewItems = observer(({ node }: { node: Node }) => (
+    <ul className="OverviewItems">
+      {node.children.map((child) => (
+        <li key={child.id}>
+          <OverviewItem node={child} />
+          {child.is_folder() && <OverviewItems node={child} />}
+        </li>
+      ))}
+    </ul>
+  ));
+
+  const OverviewItem = observer(({ node }: { node: Node }) => (
+    <a
+      href={"#/" + node.id}
+      className={classNames("OverviewItem", { active: node === ui.node })}
+    >
+      <NodeIcon type={node.data.type} />
+      <NodeName node={node} />
+    </a>
+  ));
 
   const NodeName = observer(
     ({ node, editable = false }: { node: Node; editable?: boolean }) =>
       editable ? (
         <input
           type="text"
-          className="clean-input"
+          className={classNames("NodeName", { untitled: !node.data.name })}
           value={node.data.name}
           placeholder={untitled}
-          onChange={(event) => {
-            node.data.name = event.target.value;
-          }}
-          style={{
-            margin: "0.2em 0",
-            fontStyle: node.data.name ? undefined : "italic",
-          }}
+          onChange={(event) => (node.data.name = event.target.value)}
         />
       ) : (
-        <span
-          style={{
-            fontStyle: node.data.name ? undefined : "italic",
-          }}
-        >
+        <span className={classNames("NodeName", { untitled: !node.data.name })}>
           {node.data.name || untitled}
         </span>
       )
   );
 
-  const NodeIcon = observer(
-    ({ node, large = false }: { node: Node; large?: boolean }) => (
-      <span
-        style={{
-          placeSelf: "center",
-          lineHeight: 0,
-          marginTop: "-0.1em",
-          fontSize: large ? "150%" : undefined,
-        }}
-      >
-        <span
-          style={{
-            fontSize: node.is_folder() ? "100%" : "125%",
-          }}
-        >
-          {node.is_folder() ? "🖿" : "🗎"}
-        </span>
-      </span>
-    )
-  );
+  const NodeIcon = observer(({ type }: { type: Data["type"] }) => (
+    <span className="NodeIcon">
+      <span className={type} />
+    </span>
+  ));
 
   const View = observer(({ node }: { node: Node }) => {
     if (node.is_folder()) return <FolderView node={node} />;
@@ -358,22 +291,17 @@ namespace Office {
       {node.children.map((child) => (
         <FolderViewItem key={child.id} node={child} />
       ))}
-      {node.children.length === 0 && (
-        <span
-          className="ui-font"
-          style={{
-            color: "#bbb",
-          }}
-        >
-          (empty)
-        </span>
-      )}
+      {node.children.length === 0 && <EmptyPlaceholder />}
     </>
   ));
 
+  const EmptyPlaceholder = () => (
+    <span className="EmptyPlaceholder">(empty)</span>
+  );
+
   const FolderViewItem = observer(({ node }: { node: Node }) => (
     <a href={"#/" + node.id} className="FolderViewItem">
-      <NodeIcon node={node} large />
+      <NodeIcon type={node.data.type} />
       <NodeName node={node} />
     </a>
   ));
@@ -407,11 +335,11 @@ namespace Office {
     }, [textAreaRef, node.data.paragraph, ui.focus]);
 
     return (
-      <li key={node.id} className="item">
+      <li key={node.id} className="OutlineViewItem">
         <div className="bullet" />
         <input
           type="text"
-          className="name clean-input"
+          className="name"
           value={node.data.name}
           onChange={(event) => (node.data.name = event.target.value)}
           onKeyDown={(event) => {
@@ -476,7 +404,7 @@ namespace Office {
         {(node.data.paragraph || ui.focus === node.id + ":paragraph") && (
           <textarea
             ref={textAreaRef}
-            className="paragraph clean-input"
+            className="paragraph"
             value={node.data.paragraph}
             onChange={(event) => (node.data.paragraph = event.target.value)}
             onKeyDown={(event) => {
@@ -520,6 +448,4 @@ namespace Office {
   }
 
   autorun(focusFocus);
-
-  ui.node = office.create_outline(office.root);
 }
