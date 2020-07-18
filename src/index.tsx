@@ -97,7 +97,10 @@ namespace Office {
       return node;
     }
 
-    create_outline(parent: Node<FolderData | OutlineData>, index = 0) {
+    create_outline(
+      parent: Node<FolderData | OutlineData>,
+      index = parent.children.length
+    ) {
       const node = Node.create("outline");
       parent.children.splice(index, 0, node);
       return node;
