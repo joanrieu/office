@@ -294,27 +294,40 @@ namespace Office {
   });
 
   const OutlineViewItems = observer(
-    ({ items }: { items: Node<OutlineData>[] }) => (
-      <ul className="OutlineViewItems">
-        {items.map((item) => (
-          <li key={item.id} className="item">
-            <div className="bullet"></div>
-            <input
-              type="text"
-              className="name clean-input"
-              value={item.data.name}
-              onChange={(event) => (item.data.name = event.target.value)}
-            />
-            <textarea
-              className="paragraph clean-input"
-              value={item.data.paragraph}
-              onChange={(event) => (item.data.paragraph = event.target.value)}
-            ></textarea>
-            <OutlineViewItems items={item.children as Node<OutlineData>[]} />
-          </li>
-        ))}
-      </ul>
-    )
+    ({ items }: { items: Node<OutlineData>[] }) => {
+      const ref = useRef<HTMLTextAreaElement | null>(null);
+
+      useLayoutEffect(() => {
+        const el = ref.current;
+        if (el) {
+          el.style.height = "0";
+          el.style.height = el.scrollHeight + "px";
+        }
+      });
+
+      return (
+        <ul className="OutlineViewItems">
+          {items.map((item) => (
+            <li key={item.id} className="item">
+              <div className="bullet"></div>
+              <input
+                type="text"
+                className="name clean-input"
+                value={item.data.name}
+                onChange={(event) => (item.data.name = event.target.value)}
+              />
+              <textarea
+                ref={ref}
+                className="paragraph clean-input"
+                value={item.data.paragraph}
+                onChange={(event) => (item.data.paragraph = event.target.value)}
+              ></textarea>
+              <OutlineViewItems items={item.children as Node<OutlineData>[]} />
+            </li>
+          ))}
+        </ul>
+      );
+    }
   );
 
   render(<App />, document.getElementById("app"));
