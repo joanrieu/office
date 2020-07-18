@@ -98,6 +98,7 @@ button {
     grid-template-areas: "bullet text" "empty text" "empty note" "empty children";
     grid-template-columns: 1.5em 1fr;
     grid-template-rows: 1.5em auto auto auto;
+    margin-bottom: 0.5em;
 
     > .bullet {
       grid-area: bullet;

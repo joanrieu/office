@@ -183,30 +183,34 @@ namespace Office {
     </div>
   );
 
-  const KeyboardShortcuts = () => (
+  const KeyboardShortcuts = observer(() => (
     <table className="KeyboardShortcuts">
       <tbody>
-        <tr>
-          <td>
-            <kbd>Enter</kbd>
-          </td>
-          <td>New item below</td>
-        </tr>
-        <tr>
-          <td>
-            <kbd>Shift-Enter</kbd>
-          </td>
-          <td>New item above</td>
-        </tr>
-        <tr>
-          <td>
-            <kbd>Ctrl-Shift-Enter</kbd>
-          </td>
-          <td>Go to note (and back)</td>
-        </tr>
+        {ui.node.is_outline() && (
+          <>
+            <tr>
+              <td>
+                <kbd>Enter</kbd>
+              </td>
+              <td>New item below</td>
+            </tr>
+            <tr>
+              <td>
+                <kbd>Shift-Enter</kbd>
+              </td>
+              <td>New item above</td>
+            </tr>
+            <tr>
+              <td>
+                <kbd>Ctrl-Shift-Enter</kbd>
+              </td>
+              <td>Go to note (and back)</td>
+            </tr>
+          </>
+        )}
       </tbody>
     </table>
-  );
+  ));
 
   const Overview = observer(
     ({ node, activeNode }: { node?: Node; activeNode: Node }) =>
