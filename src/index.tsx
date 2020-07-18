@@ -372,7 +372,7 @@ namespace Office {
         el.style.height = "0";
         el.style.height = el.scrollHeight + "px";
       }
-    }, [textAreaRef, node.data.paragraph]);
+    }, [textAreaRef, node.data.paragraph, ui.focus]);
 
     return (
       <li key={node.id} className="item">
@@ -383,20 +383,22 @@ namespace Office {
           value={node.data.name}
           onChange={(event) => (node.data.name = event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              if (event.ctrlKey && event.shiftKey) {
-                ui.focus = node.id + ":paragraph";
-              } else {
-                const parent = office.find_parent(node) as Node<OutlineData>;
-                const offset = event.shiftKey ? 0 : 1;
-                const sibling = office.create_outline(
-                  parent,
-                  parent.children.indexOf(node) + offset
-                );
-                ui.focus = sibling.id + ":name";
-              }
-            } else if (event.key === "Backspace" && !node.data.name) {
-              const nearest = office.find_nearest_node(node, -1);
+            if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
+              ui.focus = node.id + ":paragraph";
+            } else if (event.key === "Enter") {
+              const parent = office.find_parent(node) as Node<OutlineData>;
+              const offset = event.shiftKey ? 0 : 1;
+              const sibling = office.create_outline(
+                parent,
+                parent.children.indexOf(node) + offset
+              );
+              ui.focus = sibling.id + ":name";
+            } else if (
+              (event.key === "Backspace" || event.key === "Delete") &&
+              !node.data.name
+            ) {
+              const directionOffset = event.key === "Backspace" ? -1 : 1;
+              const nearest = office.find_nearest_node(node, directionOffset);
               if (nearest?.is_outline()) {
                 ui.focus = nearest.id + ":name";
               }
@@ -416,29 +418,31 @@ namespace Office {
           onFocus={() => (ui.focus = node.id + ":name")}
           autoFocus={ui.focus === node.id + ":name"}
         />
-        <textarea
-          ref={textAreaRef}
-          className="paragraph clean-input"
-          value={node.data.paragraph}
-          onChange={(event) => (node.data.paragraph = event.target.value)}
-          onKeyDown={(event) => {
-            if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
-              ui.focus = node.id + ":name";
-            } else if (event.key === "Backspace" && !node.data.name) {
-              const nearest = office.find_nearest_node(node, -1);
-              if (nearest?.is_outline()) {
-                ui.focus = nearest.id + ":name";
+        {(node.data.paragraph || ui.focus === node.id + ":paragraph") && (
+          <textarea
+            ref={textAreaRef}
+            className="paragraph clean-input"
+            value={node.data.paragraph}
+            onChange={(event) => (node.data.paragraph = event.target.value)}
+            onKeyDown={(event) => {
+              if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
+                ui.focus = node.id + ":name";
+              } else if (event.key === "Backspace" && !node.data.name) {
+                const nearest = office.find_nearest_node(node, -1);
+                if (nearest?.is_outline()) {
+                  ui.focus = nearest.id + ":name";
+                }
+                office.delete_node(node);
+              } else {
+                return;
               }
-              office.delete_node(node);
-            } else {
-              return;
-            }
-            event.preventDefault();
-          }}
-          data-focus={node.id + ":paragraph"}
-          onFocus={() => (ui.focus = node.id + ":paragraph")}
-          autoFocus={ui.focus === node.id + ":paragraph"}
-        />
+              event.preventDefault();
+            }}
+            data-focus={node.id + ":paragraph"}
+            onFocus={() => (ui.focus = node.id + ":paragraph")}
+            autoFocus={ui.focus === node.id + ":paragraph"}
+          />
+        )}
         <OutlineViewItems nodes={node.children as Node<OutlineData>[]} />
       </li>
     );
