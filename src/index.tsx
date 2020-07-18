@@ -2,7 +2,7 @@ import "minireset.css";
 import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { render } from "react-dom";
 import "uuid";
 import { v1 } from "uuid";
@@ -142,23 +142,14 @@ namespace Office {
           <div
             className="ui-panel"
             style={{
+              display: "grid",
+              gridTemplateRows: "auto 1fr auto",
               borderRightWidth: "1px",
             }}
           >
-            <div
-              style={{
-                padding: "0.5em",
-                opacity: 0.2,
-                fontSize: "2em",
-                fontWeight: "bold",
-                letterSpacing: "0.3em",
-                textAlign: "center",
-                textTransform: "uppercase",
-              }}
-            >
-              Office
-            </div>
+            <Logo />
             <Overview activeNode={node} />
+            <KeyboardShortcuts />
           </div>
           <div
             style={{
@@ -174,6 +165,47 @@ namespace Office {
         </div>
       );
     }
+  );
+
+  const Logo = () => (
+    <div
+      style={{
+        padding: "0.5em",
+        opacity: 0.2,
+        fontSize: "2em",
+        fontWeight: "bold",
+        letterSpacing: "0.3em",
+        textAlign: "center",
+        textTransform: "uppercase",
+      }}
+    >
+      Office
+    </div>
+  );
+
+  const KeyboardShortcuts = () => (
+    <table className="KeyboardShortcuts">
+      <tbody>
+        <tr>
+          <td>
+            <kbd>Enter</kbd>
+          </td>
+          <td>New item below</td>
+        </tr>
+        <tr>
+          <td>
+            <kbd>Shift-Enter</kbd>
+          </td>
+          <td>New item above</td>
+        </tr>
+        <tr>
+          <td>
+            <kbd>Ctrl-Shift-Enter</kbd>
+          </td>
+          <td>Go to note (and back)</td>
+        </tr>
+      </tbody>
+    </table>
   );
 
   const Overview = observer(
@@ -196,10 +228,10 @@ namespace Office {
           ))}
         </ul>
       ) : (
-        <>
+        <div>
           <OverviewItem node={office.root} activeNode={activeNode} />
           <Overview node={office.root} activeNode={activeNode} />
-        </>
+        </div>
       )
   );
 
@@ -317,76 +349,68 @@ namespace Office {
     )
   );
 
-  const OutlineViewItem = observer(
-    ({
-      node,
-      moveFocus,
-    }: {
-      node: Node<OutlineData>;
-      moveFocus: (offset: -1 | 1) => void;
-    }) => {
-      const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
-      useLayoutEffect(() => {
-        const el = textAreaRef.current;
-        if (el) {
-          el.style.height = "0";
-          el.style.height = el.scrollHeight + "px";
-        }
-      }, [textAreaRef, node.data.paragraph]);
+  const OutlineViewItem = observer(({ node }: { node: Node<OutlineData> }) => {
+    const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+    useLayoutEffect(() => {
+      const el = textAreaRef.current;
+      if (el) {
+        el.style.height = "0";
+        el.style.height = el.scrollHeight + "px";
+      }
+    }, [textAreaRef, node.data.paragraph]);
 
-      return (
-        <li key={node.id} className="item">
-          <div className="bullet" />
-          <input
-            type="text"
-            className="name clean-input"
-            value={node.data.name}
-            onChange={(event) => (node.data.name = event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                if (event.ctrlKey && event.shiftKey) {
-                  ui.focus = node.id + ":paragraph";
-                } else {
-                  const parent = office.find_parent(node) as Node<OutlineData>;
-                  const offset = event.shiftKey ? 0 : 1;
-                  const sibling = office.create_outline(
-                    parent,
-                    parent.children.indexOf(node) + offset
-                  );
-                  ui.focus = sibling.id + ":name";
-                }
-              } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                const directionOffset = event.key === "ArrowUp" ? -1 : 1;
-                const nearest = office.find_nearest_node(node, directionOffset);
-                if (nearest?.is_outline()) {
-                  ui.focus = nearest.id + ":name";
-                }
+    return (
+      <li key={node.id} className="item">
+        <div className="bullet" />
+        <input
+          type="text"
+          className="name clean-input"
+          value={node.data.name}
+          onChange={(event) => (node.data.name = event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (event.ctrlKey && event.shiftKey) {
+                ui.focus = node.id + ":paragraph";
+              } else {
+                const parent = office.find_parent(node) as Node<OutlineData>;
+                const offset = event.shiftKey ? 0 : 1;
+                const sibling = office.create_outline(
+                  parent,
+                  parent.children.indexOf(node) + offset
+                );
+                ui.focus = sibling.id + ":name";
               }
-            }}
-            data-focus={node.id + ":name"}
-            onFocus={() => (ui.focus = node.id + ":name")}
-            autoFocus={ui.focus === node.id + ":name"}
-          />
-          <textarea
-            ref={textAreaRef}
-            className="paragraph clean-input"
-            value={node.data.paragraph}
-            onChange={(event) => (node.data.paragraph = event.target.value)}
-            onKeyDown={(event) => {
-              if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
-                ui.focus = node.id + ":name";
+            } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              const directionOffset = event.key === "ArrowUp" ? -1 : 1;
+              const nearest = office.find_nearest_node(node, directionOffset);
+              if (nearest?.is_outline()) {
+                ui.focus = nearest.id + ":name";
               }
-            }}
-            data-focus={node.id + ":paragraph"}
-            onFocus={() => (ui.focus = node.id + ":paragraph")}
-            autoFocus={ui.focus === node.id + ":paragraph"}
-          />
-          <OutlineViewItems nodes={node.children as Node<OutlineData>[]} />
-        </li>
-      );
-    }
-  );
+            }
+          }}
+          data-focus={node.id + ":name"}
+          onFocus={() => (ui.focus = node.id + ":name")}
+          autoFocus={ui.focus === node.id + ":name"}
+        />
+        <textarea
+          ref={textAreaRef}
+          className="paragraph clean-input"
+          value={node.data.paragraph}
+          onChange={(event) => (node.data.paragraph = event.target.value)}
+          onKeyDown={(event) => {
+            if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
+              ui.focus = node.id + ":name";
+            }
+          }}
+          data-focus={node.id + ":paragraph"}
+          onFocus={() => (ui.focus = node.id + ":paragraph")}
+          autoFocus={ui.focus === node.id + ":paragraph"}
+        />
+        <OutlineViewItems nodes={node.children as Node<OutlineData>[]} />
+      </li>
+    );
+  });
 
   render(<App />, document.getElementById("app"));
 

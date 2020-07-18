@@ -1,7 +1,3 @@
-* {
-  box-sizing: border-box;
-}
-
 html,
 body,
 #app {
@@ -124,5 +120,14 @@ button {
       font-size: 11pt;
       white-space: pre-wrap;
     }
+  }
+}
+
+.KeyboardShortcuts {
+  font-size: 10pt;
+  opacity: 0.5;
+
+  td {
+    padding: 0.2em;
   }
 }
