@@ -136,6 +136,7 @@ namespace Office {
           style={{
             display: "grid",
             gridTemplateColumns: "15em auto",
+            overflow: "auto",
           }}
         >
           <div
@@ -162,6 +163,7 @@ namespace Office {
           <div
             style={{
               padding: "5vmin",
+              overflow: "auto",
             }}
           >
             <h1 style={{ fontSize: "2em" }}>
@@ -330,7 +332,7 @@ namespace Office {
           el.style.height = "0";
           el.style.height = el.scrollHeight + "px";
         }
-      }, []);
+      }, [textAreaRef, node.data.paragraph]);
 
       return (
         <li key={node.id} className="item">
@@ -343,33 +345,42 @@ namespace Office {
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                const parent = office.find_parent(node) as Node<OutlineData>;
-                const offset = event.shiftKey ? 0 : 1;
-                const sibling = office.create_outline(
-                  parent,
-                  parent.children.indexOf(node) + offset
-                );
-                ui.focus = sibling.id;
+                if (event.ctrlKey && event.shiftKey) {
+                  ui.focus = node.id + ":paragraph";
+                } else {
+                  const parent = office.find_parent(node) as Node<OutlineData>;
+                  const offset = event.shiftKey ? 0 : 1;
+                  const sibling = office.create_outline(
+                    parent,
+                    parent.children.indexOf(node) + offset
+                  );
+                  ui.focus = sibling.id + ":name";
+                }
               } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
                 const directionOffset = event.key === "ArrowUp" ? -1 : 1;
                 const nearest = office.find_nearest_node(node, directionOffset);
                 if (nearest?.is_outline()) {
-                  ui.focus = nearest.id;
+                  ui.focus = nearest.id + ":name";
                 }
               }
             }}
-            data-focus={node.id}
-            onFocus={() => (ui.focus = node.id)}
-            onBlur={() => {
-              if (ui.focus === node.id) ui.focus = null;
-            }}
-            autoFocus={ui.focus === node.id}
+            data-focus={node.id + ":name"}
+            onFocus={() => (ui.focus = node.id + ":name")}
+            autoFocus={ui.focus === node.id + ":name"}
           />
           <textarea
             ref={textAreaRef}
             className="paragraph clean-input"
             value={node.data.paragraph}
             onChange={(event) => (node.data.paragraph = event.target.value)}
+            onKeyDown={(event) => {
+              if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
+                ui.focus = node.id + ":name";
+              }
+            }}
+            data-focus={node.id + ":paragraph"}
+            onFocus={() => (ui.focus = node.id + ":paragraph")}
+            autoFocus={ui.focus === node.id + ":paragraph"}
           />
           <OutlineViewItems nodes={node.children as Node<OutlineData>[]} />
         </li>
@@ -397,7 +408,6 @@ namespace Office {
       `[data-focus="${ui.focus}"]`
     );
     if (el) el.focus();
-    console.log(el);
   }
 
   autorun(focusFocus);
