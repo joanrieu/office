@@ -28,6 +28,11 @@ body {
   border: 0px solid #bbb;
 }
 
+.ui-muted {
+  @extend .ui-font;
+  color: #bbb;
+}
+
 button {
   @extend .ui-font;
   background-color: #ddd;
@@ -123,11 +128,6 @@ button {
   }
 }
 
-.EmptyPlaceholder {
-  @extend .ui-font;
-  color: #bbb;
-}
-
 .NodeIcon {
   place-self: center;
   line-height: 0;
@@ -192,7 +192,7 @@ button {
     white-space: pre-wrap;
   }
 
-  > .paragraph {
+  > .note {
     @extend .clean-input;
     grid-area: note;
     font-size: 11pt;
