@@ -308,6 +308,15 @@ namespace Office {
       return query.response!.nodes.map((id) => new Node(this.office, id));
     }
 
+    get firstChild(): Node | null {
+      return this.children[0] ?? null;
+    }
+
+    get lastChild(): Node | null {
+      const children = this.children;
+      return children[children.length - 1] ?? null;
+    }
+
     get siblings() {
       const parent = this.parent;
       if (parent) {
@@ -356,33 +365,19 @@ namespace Office {
     }
 
     get nodeAbove() {
-      const parent = this.parent;
-      if (!parent) return null;
-      const siblings = parent.children;
-      const index = siblings.findIndex((node) => node.id === this.id);
-      if (index === 0) return parent;
-      return siblings[index - 1].nodeAtBottomOfSubtree;
+      return this.previousSibling?.nodeAtBottomOfSubtree ?? this.parent;
     }
 
     get nodeAtBottomOfSubtree(): Node {
-      const children = this.children;
-      if (children.length === 0) return this;
-      return children[children.length - 1].nodeAtBottomOfSubtree;
+      return this.lastChild?.nodeAtBottomOfSubtree ?? this;
     }
 
     get nodeBelow() {
-      const children = this.children;
-      if (this.children.length > 0) return children[0];
-      return this.nodeBelowSubtree;
+      return this.firstChild ?? this.nodeBelowSubtree;
     }
 
     get nodeBelowSubtree(): Node | null {
-      const parent = this.parent;
-      if (!parent) return null;
-      const siblings = parent.children;
-      const index = siblings.findIndex((node) => node.id === this.id);
-      if (index < siblings.length - 1) return siblings[index + 1];
-      return parent.nodeBelowSubtree;
+      return this.nextSibling ?? this.parent?.nodeBelowSubtree ?? null;
     }
 
     get name() {
@@ -657,9 +652,9 @@ namespace Office {
               if (event.shiftKey) {
                 empty.moveBefore(node);
               } else {
-                const below = node.nodeBelow;
-                if (below) {
-                  empty.moveBefore(below);
+                const child = node.firstChild;
+                if (child) {
+                  empty.moveBefore(child);
                 } else {
                   empty.moveAfter(node);
                 }
