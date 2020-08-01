@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import "minireset.css";
-import { autorun, observable } from "mobx";
+import { autorun, observable, action } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
 import React, { useEffect, useLayoutEffect, useRef } from "react";
@@ -127,12 +127,23 @@ namespace Office {
       }
     }
 
-    @observable private events: Event[] = [
-      {
-        type: "FolderCreated",
-        id: Node.newId(),
-      },
-    ];
+    @observable events: Event[] = [];
+
+    get initialEvents(): Event[] {
+      const id = Node.newId();
+      return [
+        {
+          type: "FolderCreated",
+          id,
+        },
+        {
+          type: "TextEdited",
+          id,
+          field: "name",
+          text: "Drive",
+        },
+      ];
+    }
 
     query(query: Query) {
       switch (query.type) {
@@ -419,13 +430,91 @@ namespace Office {
     }
   }
 
-  const office = new Office();
+  class Sync {
+    constructor(readonly office: Office) {
+      autorun(this.debouncedSync.bind(this));
+      this.sync();
+    }
+
+    @observable seq = 0;
+    @observable syncing = false;
+    @observable lastSyncDate = new Date();
+    debounceTimeout = 0;
+
+    get unsyncedEvents() {
+      return this.office.events.slice(this.seq);
+    }
+
+    debouncedSync() {
+      this.unsyncedEvents;
+      clearTimeout(this.debounceTimeout);
+      this.debounceTimeout = setTimeout(this.sync.bind(this), 4000);
+    }
+
+    async sync() {
+      if (!this.syncing) {
+        this.syncing = true;
+        this.pack();
+        await this.commit();
+        this.lastSyncDate = new Date();
+        this.syncing = false;
+        this.debouncedSync();
+      }
+    }
+
+    pack() {
+      const events = this.office.events;
+      let lastTextEdit: Event | null = null;
+      let i = this.seq;
+      while (i < events.length) {
+        const event = events[i];
+        let deletePrevious = false;
+        if (event.type === "TextEdited") {
+          if (
+            lastTextEdit &&
+            lastTextEdit.id === event.id &&
+            lastTextEdit.field === event.field
+          ) {
+            deletePrevious = true;
+          }
+          lastTextEdit = event;
+        } else {
+          lastTextEdit = null;
+        }
+        if (deletePrevious) {
+          events.splice(i - 1, 1);
+        } else {
+          ++i;
+        }
+      }
+    }
+
+    @action
+    commit() {
+      const key = "office.events";
+      const pushed = this.unsyncedEvents;
+      const serialized = localStorage.getItem(key);
+      const deserialized = serialized
+        ? (JSON.parse(serialized) as Event[])
+        : this.office.initialEvents;
+      const common = deserialized.slice(0, this.seq);
+      const pulled = deserialized.slice(this.seq);
+      const events = common.concat(pulled, pushed);
+      localStorage.setItem(key, JSON.stringify(events));
+      this.seq = events.length;
+      office.events = events;
+    }
+  }
+
   class UI {
-    @observable node: Node = Node.root(office);
+    constructor(readonly office: Office) {}
+    @observable node: Node = Node.root(this.office);
     @observable focus: string | null = null;
   }
 
-  const ui = new UI();
+  const office = new Office();
+  const sync = new Sync(office);
+  const ui = new UI(office);
 
   const App = observer(() => (
     <Layout node={ui.node}>
@@ -451,7 +540,7 @@ namespace Office {
             <Logo />
             <Overview />
             <div>
-              {/* <SyncStatus /> */}
+              <SyncStatus />
               <KeyboardShortcuts />
             </div>
           </div>
@@ -509,19 +598,24 @@ namespace Office {
     </table>
   ));
 
-  // const SyncStatus = observer(() =>
-  //   sync.syncing ? (
-  //     <div className="ui-muted">Syncing…</div>
-  //   ) : (
-  //     <div className="ui-muted">
-  //       Last sync:{" "}
-  //       {new Intl.DateTimeFormat(undefined, {
-  //         hour: "numeric",
-  //         minute: "numeric",
-  //       }).format(sync.lastSyncDate)}
-  //     </div>
-  //   )
-  // );
+  const SyncStatus = observer(() => {
+    if (sync.syncing) return <div className="ui-muted">Syncing…</div>;
+
+    const time = new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "numeric",
+    }).format(sync.lastSyncDate);
+
+    const dirty = sync.unsyncedEvents.length > 0;
+
+    return (
+      <div className="ui-muted">
+        <span>Synchronized</span>
+        {dirty && "*"}
+        <span> at {time}</span>
+      </div>
+    );
+  });
 
   const Overview = observer(() => (
     <div>
@@ -611,10 +705,12 @@ namespace Office {
   ));
 
   const OutlineView = observer(({ node }: { node: Node }) => {
-    if (!node.children.length) {
-      const child = Node.create(office, "outline", node);
-      setTimeout(() => (ui.focus = child.id + ":name"));
-    }
+    useEffect(() => {
+      if (!node.children.length) {
+        const child = Node.create(office, "outline", node);
+        ui.focus = child.id + ":name";
+      }
+    });
     return <OutlineViewItems nodes={node.children} />;
   });
 

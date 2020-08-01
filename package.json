@@ -20,5 +20,8 @@
   "devDependencies": {
     "@types/uuid": "^8.0.0",
     "sass": "^1.26.10"
-  }
+  },
+  "browserslist": [
+    "last 2 years"
+  ]
 }
