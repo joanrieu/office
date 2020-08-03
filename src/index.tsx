@@ -1,8 +1,9 @@
 import classNames from "classnames";
 import "minireset.css";
-import { autorun, observable, action } from "mobx";
+import { autorun, observable, when } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
+import PouchDB from "pouchdb";
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { render } from "react-dom";
 import "uuid";
@@ -15,46 +16,53 @@ namespace Office {
   export type Command =
     | {
         type: "CreateFolder";
-        id: NodeId;
+        node: NodeId;
       }
     | {
         type: "CreateOutline";
-        id: NodeId;
+        node: NodeId;
       }
     | {
         type: "MoveNode";
-        id: NodeId;
+        node: NodeId;
         parent: NodeId;
         next?: NodeId;
       }
     | {
         type: "EditText";
-        id: NodeId;
+        node: NodeId;
         field: string;
         text: string;
       };
 
-  export type Event =
-    | {
-        type: "FolderCreated";
-        id: NodeId;
-      }
-    | {
-        type: "OutlineCreated";
-        id: NodeId;
-      }
-    | {
-        type: "NodeMoved";
-        id: NodeId;
-        parent: NodeId;
-        next?: NodeId;
-      }
-    | {
-        type: "TextEdited";
-        id: NodeId;
-        field: string;
-        text: string;
-      };
+  export interface EventMeta {
+    id: string;
+    pid?: string;
+  }
+
+  export type Event = EventMeta &
+    (
+      | {
+          type: "FolderCreated";
+          node: NodeId;
+        }
+      | {
+          type: "OutlineCreated";
+          node: NodeId;
+        }
+      | {
+          type: "NodeMoved";
+          node: NodeId;
+          parent: NodeId;
+          next?: NodeId;
+        }
+      | {
+          type: "TextEdited";
+          node: NodeId;
+          field: string;
+          text: string;
+        }
+    );
 
   export type Query =
     | {
@@ -65,28 +73,28 @@ namespace Office {
       }
     | {
         type: "GetChildNodes";
-        id: NodeId;
+        node: NodeId;
         response?: {
           nodes: NodeId[];
         };
       }
     | {
         type: "GetParentNode";
-        id: NodeId;
+        node: NodeId;
         response?: {
           parent: NodeId;
         };
       }
     | {
         type: "GetType";
-        id: NodeId;
+        node: NodeId;
         response?: {
           type: "outline" | "folder";
         };
       }
     | {
         type: "GetText";
-        id: NodeId;
+        node: NodeId;
         field: string;
         response?: {
           text: string;
@@ -97,29 +105,33 @@ namespace Office {
     command(command: Command) {
       switch (command.type) {
         case "CreateFolder":
-          this.events.push({
+          this.dispatch({
+            ...this.newMetadata(),
             type: "FolderCreated",
-            id: command.id,
+            node: command.node,
           });
           break;
         case "CreateOutline":
-          this.events.push({
+          this.dispatch({
+            ...this.newMetadata(),
             type: "OutlineCreated",
-            id: command.id,
+            node: command.node,
           });
           break;
         case "MoveNode":
-          this.events.push({
+          this.dispatch({
+            ...this.newMetadata(),
             type: "NodeMoved",
-            id: command.id,
+            node: command.node,
             parent: command.parent,
             next: command.next,
           });
           break;
         case "EditText":
-          this.events.push({
+          this.dispatch({
+            ...this.newMetadata(),
             type: "TextEdited",
-            id: command.id,
+            node: command.node,
             field: command.field,
             text: command.text,
           });
@@ -127,31 +139,36 @@ namespace Office {
       }
     }
 
-    @observable events: Event[] = [];
+    newMetadata(): EventMeta {
+      return {
+        id: this.newEventId(),
+        pid: this.eventsByDate.pop()?.id,
+      };
+    }
 
-    get initialEvents(): Event[] {
-      const id = Node.newId();
-      return [
-        {
-          type: "FolderCreated",
-          id,
-        },
-        {
-          type: "TextEdited",
-          id,
-          field: "name",
-          text: "Drive",
-        },
-      ];
+    dispatch(event: Event) {
+      this.eventsById[event.id] = event;
+    }
+
+    newEventId() {
+      return new Date().toISOString() + "+" + v1();
+    }
+
+    @observable eventsById: Record<string, Event> = {};
+
+    get eventsByDate(): Event[] {
+      return Object.keys(this.eventsById)
+        .sort()
+        .map((id) => this.eventsById[id]);
     }
 
     query(query: Query) {
       switch (query.type) {
         case "GetRootNode":
-          for (const event of this.events) {
+          for (const event of this.eventsByDate) {
             if (event.type === "FolderCreated") {
               query.response = {
-                node: event.id,
+                node: event.node,
               };
               break;
             }
@@ -159,18 +176,18 @@ namespace Office {
           break;
         case "GetChildNodes":
           query.response = {
-            nodes: this.events.reduce((children, event) => {
+            nodes: this.eventsByDate.reduce((children, event) => {
               switch (event.type) {
                 case "NodeMoved":
-                  if (event.parent === query.id) {
+                  if (event.parent === query.node) {
                     const index = children.indexOf(event.next!);
                     if (index < 0) {
-                      children.push(event.id);
+                      children.push(event.node);
                     } else {
-                      children.splice(index, 0, event.id);
+                      children.splice(index, 0, event.node);
                     }
-                  } else if (children.includes(event.id)) {
-                    children.splice(children.indexOf(event.id), 1);
+                  } else if (children.includes(event.node)) {
+                    children.splice(children.indexOf(event.node), 1);
                   }
                   break;
               }
@@ -179,8 +196,8 @@ namespace Office {
           };
           break;
         case "GetParentNode":
-          for (const event of this.events.slice().reverse()) {
-            if (event.id === query.id && event.type === "NodeMoved") {
+          for (const event of this.eventsByDate.slice().reverse()) {
+            if (event.node === query.node && event.type === "NodeMoved") {
               query.response = {
                 parent: event.parent,
               };
@@ -189,8 +206,8 @@ namespace Office {
           }
           break;
         case "GetType":
-          for (const event of this.events) {
-            if (event.id !== query.id) continue;
+          for (const event of this.eventsByDate) {
+            if (event.node !== query.node) continue;
             if (event.type === "FolderCreated") {
               query.response = {
                 type: "folder",
@@ -205,10 +222,10 @@ namespace Office {
           }
           break;
         case "GetText":
-          for (const event of this.events.slice().reverse()) {
+          for (const event of this.eventsByDate.slice().reverse()) {
             if (
               event.type === "TextEdited" &&
-              event.id === query.id &&
+              event.node === query.node &&
               event.field === query.field
             ) {
               query.response = {
@@ -222,18 +239,25 @@ namespace Office {
   }
 
   class Node {
-    private constructor(readonly office: Office, readonly id: NodeId) {}
+    constructor(readonly office: Office, readonly id: NodeId) {}
 
     static root(office: Office) {
       const query: Query = {
         type: "GetRootNode",
       };
       office.query(query);
-      return new Node(office, query.response!.node);
+      const node = query.response?.node;
+      if (!node) return null;
+      return new Node(office, node);
     }
 
     static newId() {
       return v1() as NodeId;
+    }
+
+    static createInitialEvents(office: Office) {
+      const node = Node.create(office, "folder");
+      node.name = "Drive";
     }
 
     static create(office: Office, type: Node["type"], parent?: Node) {
@@ -242,13 +266,13 @@ namespace Office {
         case "folder":
           office.command({
             type: "CreateFolder",
-            id,
+            node: id,
           });
           break;
         case "outline":
           office.command({
             type: "CreateOutline",
-            id,
+            node: id,
           });
           break;
         default:
@@ -257,7 +281,7 @@ namespace Office {
       if (parent) {
         office.command({
           type: "MoveNode",
-          id,
+          node: id,
           parent: parent.id,
         });
       }
@@ -273,7 +297,7 @@ namespace Office {
     moveBefore(node: Node) {
       office.command({
         type: "MoveNode",
-        id: this.id,
+        node: this.id,
         parent: node.parent!.id,
         next: node.id,
       });
@@ -282,7 +306,7 @@ namespace Office {
     moveAfter(node: Node) {
       office.command({
         type: "MoveNode",
-        id: this.id,
+        node: this.id,
         parent: node.parent!.id,
         next: node.nextSibling?.id,
       });
@@ -291,7 +315,7 @@ namespace Office {
     moveInside(node: Node) {
       office.command({
         type: "MoveNode",
-        id: this.id,
+        node: this.id,
         parent: node.id,
       });
     }
@@ -303,7 +327,7 @@ namespace Office {
     get parent() {
       const query: Query = {
         type: "GetParentNode",
-        id: this.id,
+        node: this.id,
       };
       this.office.query(query);
       if (!query.response) return null;
@@ -313,7 +337,7 @@ namespace Office {
     get children() {
       const query: Query = {
         type: "GetChildNodes",
-        id: this.id,
+        node: this.id,
       };
       this.office.query(query);
       return query.response!.nodes.map((id) => new Node(this.office, id));
@@ -361,7 +385,7 @@ namespace Office {
     get type() {
       const query: Query = {
         type: "GetType",
-        id: this.id,
+        node: this.id,
       };
       this.office.query(query);
       return query.response!.type;
@@ -394,7 +418,7 @@ namespace Office {
     get name() {
       const query: Query = {
         type: "GetText",
-        id: this.id,
+        node: this.id,
         field: "name",
       };
       this.office.query(query);
@@ -404,7 +428,7 @@ namespace Office {
     set name(name: string) {
       this.office.command({
         type: "EditText",
-        id: this.id,
+        node: this.id,
         field: "name",
         text: name,
       });
@@ -413,7 +437,7 @@ namespace Office {
     get note() {
       const query: Query = {
         type: "GetText",
-        id: this.id,
+        node: this.id,
         field: "note",
       };
       this.office.query(query);
@@ -423,7 +447,7 @@ namespace Office {
     set note(note: string) {
       this.office.command({
         type: "EditText",
-        id: this.id,
+        node: this.id,
         field: "note",
         text: note,
       });
@@ -436,79 +460,84 @@ namespace Office {
       this.sync();
     }
 
-    @observable seq = 0;
+    db = new PouchDB<{ event: Event }>("events");
+
+    @observable ready = false;
     @observable syncing = false;
     @observable lastSyncDate = new Date();
-    debounceTimeout = 0;
-
-    get unsyncedEvents() {
-      return this.office.events.slice(this.seq);
-    }
+    syncTimer = -1;
 
     debouncedSync() {
-      this.unsyncedEvents;
-      clearTimeout(this.debounceTimeout);
-      this.debounceTimeout = setTimeout(this.sync.bind(this), 4000);
+      Object.keys(this.office.eventsById);
+      clearTimeout(this.syncTimer);
+      this.syncTimer = window.setTimeout(this.sync.bind(this), 4000);
     }
 
     async sync() {
-      if (!this.syncing) {
-        this.syncing = true;
-        this.pack();
-        await this.commit();
+      if (this.syncing) return;
+      this.syncing = true;
+
+      try {
+        await this.syncDb();
         this.lastSyncDate = new Date();
-        this.syncing = false;
-        this.debouncedSync();
+      } catch (error) {
+        console.error(error);
+      }
+
+      this.syncing = false;
+      this.syncTimer = window.setTimeout(this.sync.bind(this), 10000);
+    }
+
+    getLocalIds() {
+      return Object.keys(this.office.eventsById);
+    }
+
+    async getRemoteIds() {
+      return (await this.db.allDocs()).rows.map((row) => row.id);
+    }
+
+    async syncDb() {
+      await this.push();
+      await this.db.sync("http://localhost:5984/events");
+      await this.pull();
+
+      if (!this.ready) {
+        if (Object.keys(this.office.eventsById).length === 0) {
+          Node.createInitialEvents(this.office);
+        }
+        this.ready = true;
+        await this.syncDb();
       }
     }
 
-    pack() {
-      const events = this.office.events;
-      let lastTextEdit: Event | null = null;
-      let i = this.seq;
-      while (i < events.length) {
-        const event = events[i];
-        let deletePrevious = false;
-        if (event.type === "TextEdited") {
-          if (
-            lastTextEdit &&
-            lastTextEdit.id === event.id &&
-            lastTextEdit.field === event.field
-          ) {
-            deletePrevious = true;
-          }
-          lastTextEdit = event;
-        } else {
-          lastTextEdit = null;
-        }
-        if (deletePrevious) {
-          events.splice(i - 1, 1);
-        } else {
-          ++i;
-        }
-      }
+    async push() {
+      const remoteIds = new Set(await this.getRemoteIds());
+      const localDocs = this.getLocalIds()
+        .filter((id) => !remoteIds.has(id))
+        .map((id) => this.office.eventsById[id])
+        .map((event) => ({
+          _id: event.id,
+          event,
+        }));
+      await this.db.bulkDocs(localDocs);
     }
 
-    @action
-    commit() {
-      const key = "office.events";
-      const pushed = this.unsyncedEvents;
-      const serialized = localStorage.getItem(key);
-      const deserialized = serialized
-        ? (JSON.parse(serialized) as Event[])
-        : this.office.initialEvents;
-      const common = deserialized.slice(0, this.seq);
-      const pulled = deserialized.slice(this.seq);
-      const events = common.concat(pulled, pushed);
-      localStorage.setItem(key, JSON.stringify(events));
-      this.seq = events.length;
-      office.events = events;
+    async pull() {
+      const localIds = new Set(this.getLocalIds());
+      const remoteDocs = await this.db.allDocs({
+        keys: (await this.getRemoteIds()).filter((id) => !localIds.has(id)),
+        include_docs: true,
+      });
+      for (const doc of remoteDocs.rows) {
+        const { event } = doc.doc!;
+        this.office.eventsById[event.id] = event;
+      }
     }
   }
 
   class UI {
     constructor(readonly office: Office) {}
-    @observable node: Node = Node.root(this.office);
+    @observable node: Node | null = null;
     @observable focus: string | null = null;
   }
 
@@ -516,51 +545,48 @@ namespace Office {
   const sync = new Sync(office);
   const ui = new UI(office);
 
-  const App = observer(() => (
-    <Layout node={ui.node}>
-      <View node={ui.node} />
-    </Layout>
-  ));
-
   const UNTITLED = "Untitled";
+  const TITLE = document.title;
 
-  const Layout = observer(
-    ({ node, children }: { node: Node; children: React.ReactNode }) => {
-      const name = node.name || UNTITLED;
-      const titleSeparator = " - ";
+  function setWindowTitle() {
+    const pieces = [TITLE];
 
-      useEffect(() => {
-        document.title =
-          name + titleSeparator + document.title.split(titleSeparator).pop()!;
-      }, [name]);
+    if (ui.node) {
+      pieces.unshift(ui.node.name || UNTITLED);
+    }
 
-      return (
-        <div className="Layout">
+    document.title = pieces.join(" - ");
+  }
+
+  const App = observer(() => {
+    return (
+      <div className="App">
+        <div>
+          <Logo />
+          <Overview />
           <div>
-            <Logo />
-            <Overview />
-            <div>
-              <SyncStatus />
-              <KeyboardShortcuts />
-            </div>
-          </div>
-          <div>
-            <h1>
-              <NodeName node={node} editable />
-            </h1>
-            {children}
+            <SyncStatus />
+            <KeyboardShortcuts />
           </div>
         </div>
-      );
-    }
-  );
+        {ui.node && (
+          <div>
+            <h1>
+              <NodeName node={ui.node} editable />
+            </h1>
+            <View node={ui.node} />
+          </div>
+        )}
+      </div>
+    );
+  });
 
   const Logo = () => <div className="Logo">Office</div>;
 
   const KeyboardShortcuts = observer(() => (
     <table className="KeyboardShortcuts">
       <tbody>
-        {ui.node.isOutline && (
+        {ui.node?.isOutline && (
           <>
             <tr>
               <td>
@@ -599,6 +625,8 @@ namespace Office {
   ));
 
   const SyncStatus = observer(() => {
+    if (!sync.ready) return <div className="ui-muted">Loading…</div>;
+
     if (sync.syncing) return <div className="ui-muted">Syncing…</div>;
 
     const time = new Intl.DateTimeFormat(undefined, {
@@ -606,23 +634,29 @@ namespace Office {
       minute: "numeric",
     }).format(sync.lastSyncDate);
 
-    const dirty = sync.unsyncedEvents.length > 0;
+    // const dirty = office.eventsByDate.some(
+    //   (event) => !Sync.wasEventSynced(event)
+    // );
 
     return (
       <div className="ui-muted">
         <span>Synchronized</span>
-        {dirty && "*"}
+        {/* {dirty && "*"} */}
         <span> at {time}</span>
       </div>
     );
   });
 
-  const Overview = observer(() => (
-    <div>
-      <OverviewItem node={Node.root(office)} />
-      <OverviewItems node={Node.root(office)} />
-    </div>
-  ));
+  const Overview = observer(() => {
+    const root = Node.root(office);
+    if (!root) return null;
+    return (
+      <div>
+        <OverviewItem node={root} />
+        <OverviewItems node={root} />
+      </div>
+    );
+  });
 
   const OverviewItems = observer(({ node }: { node: Node }) => (
     <ul className="OverviewItems">
@@ -821,11 +855,19 @@ namespace Office {
   function readUrlHash() {
     const id = document.location.hash.split("/")[1] as NodeId;
     const node = Node.get(office, id);
-    ui.node = node ?? Node.root(office);
+    if (node) {
+      ui.node = node;
+    }
   }
 
   function writeUrlHash() {
-    document.location.hash = "#/" + ui.node.id;
+    document.location.hash = "#/" + (ui.node?.id ?? "");
+  }
+
+  function ensureActiveNodeExists() {
+    if (!ui.node?.exists) {
+      ui.node = Node.root(office);
+    }
   }
 
   function focusFocus() {
@@ -836,11 +878,20 @@ namespace Office {
   }
 
   function initUi() {
-    readUrlHash();
-    window.addEventListener("hashchange", readUrlHash);
-    autorun(writeUrlHash);
+    when(
+      () => Boolean(Node.root(office)),
+      () => {
+        readUrlHash();
+        window.addEventListener("hashchange", readUrlHash);
+        autorun(writeUrlHash);
+
+        autorun(ensureActiveNodeExists);
+      }
+    );
 
     autorun(focusFocus);
+
+    autorun(setWindowTitle);
 
     render(<App />, document.getElementById("app"));
   }
