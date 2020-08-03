@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import "minireset.css";
-import { autorun, observable, when } from "mobx";
+import { autorun, observable, when, observe } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
 import PouchDB from "pouchdb";
@@ -154,7 +154,7 @@ namespace Office {
       return new Date().toISOString() + "+" + v1();
     }
 
-    @observable eventsById: Record<string, Event> = {};
+    @observable readonly eventsById: Record<string, Event> = {};
 
     get eventsByDate(): Event[] {
       return Object.keys(this.eventsById)
@@ -456,8 +456,31 @@ namespace Office {
 
   class Sync {
     constructor(readonly office: Office) {
-      autorun(this.debouncedSync.bind(this));
-      this.sync();
+      const events = this.office.eventsById;
+
+      this.db
+        .changes({ live: true, include_docs: true })
+        .on("change", (change) => {
+          const event = change.doc?.event;
+          if (!event) return;
+          this.syncing = true;
+          events[event.id] = event;
+          this.lastSyncDate = new Date();
+          this.syncing = false;
+        });
+
+      observe(events, async (change) => {
+        if (change.type === "add" && !this.syncing) {
+          const event: Event = change.newValue;
+          await this.db.put({ _id: event.id, event });
+        }
+      });
+
+      const remoteUrl = "http://localhost:5984/events";
+      this.db
+        .sync(remoteUrl)
+        .then(() => (this.ready = true))
+        .then(() => this.db.sync(remoteUrl, { live: true }));
     }
 
     db = new PouchDB<{ event: Event }>("events");
@@ -465,74 +488,6 @@ namespace Office {
     @observable ready = false;
     @observable syncing = false;
     @observable lastSyncDate = new Date();
-    syncTimer = -1;
-
-    debouncedSync() {
-      Object.keys(this.office.eventsById);
-      clearTimeout(this.syncTimer);
-      this.syncTimer = window.setTimeout(this.sync.bind(this), 4000);
-    }
-
-    async sync() {
-      if (this.syncing) return;
-      this.syncing = true;
-
-      try {
-        await this.syncDb();
-        this.lastSyncDate = new Date();
-      } catch (error) {
-        console.error(error);
-      }
-
-      this.syncing = false;
-      this.syncTimer = window.setTimeout(this.sync.bind(this), 10000);
-    }
-
-    getLocalIds() {
-      return Object.keys(this.office.eventsById);
-    }
-
-    async getRemoteIds() {
-      return (await this.db.allDocs()).rows.map((row) => row.id);
-    }
-
-    async syncDb() {
-      await this.push();
-      await this.db.sync("http://localhost:5984/events");
-      await this.pull();
-
-      if (!this.ready) {
-        if (Object.keys(this.office.eventsById).length === 0) {
-          Node.createInitialEvents(this.office);
-        }
-        this.ready = true;
-        await this.syncDb();
-      }
-    }
-
-    async push() {
-      const remoteIds = new Set(await this.getRemoteIds());
-      const localDocs = this.getLocalIds()
-        .filter((id) => !remoteIds.has(id))
-        .map((id) => this.office.eventsById[id])
-        .map((event) => ({
-          _id: event.id,
-          event,
-        }));
-      await this.db.bulkDocs(localDocs);
-    }
-
-    async pull() {
-      const localIds = new Set(this.getLocalIds());
-      const remoteDocs = await this.db.allDocs({
-        keys: (await this.getRemoteIds()).filter((id) => !localIds.has(id)),
-        include_docs: true,
-      });
-      for (const doc of remoteDocs.rows) {
-        const { event } = doc.doc!;
-        this.office.eventsById[event.id] = event;
-      }
-    }
   }
 
   class UI {
