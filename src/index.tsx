@@ -31,6 +31,10 @@ namespace Office {
         node: NodeId;
         field: string;
         text: string;
+      }
+    | {
+        type: "DeleteNode";
+        node: NodeId;
       };
 
   export interface EventMeta {
@@ -57,6 +61,10 @@ namespace Office {
           field: string;
           text: string;
         }
+      | {
+          type: "NodeDeleted";
+          node: NodeId;
+        }
     );
 
   export type Query =
@@ -64,6 +72,13 @@ namespace Office {
         type: "GetRootNode";
         response?: {
           node: NodeId;
+        };
+      }
+    | {
+        type: "Exists";
+        node: NodeId;
+        response?: {
+          exists: boolean;
         };
       }
     | {
@@ -125,6 +140,13 @@ namespace Office {
             text: command.text,
           });
           break;
+        case "DeleteNode":
+          this.dispatch({
+            ...this.newMetadata(),
+            type: "NodeDeleted",
+            node: command.node,
+          });
+          break;
       }
     }
 
@@ -163,6 +185,24 @@ namespace Office {
             }
           }
           break;
+        case "Exists":
+          query.response = {
+            exists: false,
+          };
+          for (const event of this.eventsByDate.slice().reverse()) {
+            if (event.type === "NodeCreated" && event.node === query.node) {
+              query.response = {
+                exists: true,
+              };
+              break;
+            } else if (
+              event.type === "NodeDeleted" &&
+              event.node === query.node
+            ) {
+              break;
+            }
+          }
+          break;
         case "GetChildNodes":
           query.response = {
             nodes: this.eventsByDate.reduce((children, event) => {
@@ -176,6 +216,11 @@ namespace Office {
                       children.splice(index, 0, event.node);
                     }
                   } else if (children.includes(event.node)) {
+                    children.splice(children.indexOf(event.node), 1);
+                  }
+                  break;
+                case "NodeDeleted":
+                  if (children.includes(event.node)) {
                     children.splice(children.indexOf(event.node), 1);
                   }
                   break;
@@ -293,7 +338,10 @@ namespace Office {
     }
 
     delete() {
-      throw new Error("Node.delete() not implemented");
+      this.office.command({
+        type: "DeleteNode",
+        node: this.id,
+      });
     }
 
     get parent() {
@@ -346,12 +394,12 @@ namespace Office {
     }
 
     get exists() {
-      try {
-        this.kind;
-        return true;
-      } catch (err) {
-        return false;
-      }
+      const query: Query = {
+        type: "Exists",
+        node: this.id,
+      };
+      this.office.query(query);
+      return query.response!.exists;
     }
 
     get kind() {
