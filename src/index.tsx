@@ -456,38 +456,53 @@ namespace Office {
 
   class Sync {
     constructor(readonly office: Office) {
-      const events = this.office.eventsById;
+      this.initLocalSync();
+      this.initRemoteSync();
+    }
 
+    readonly events = this.office.eventsById;
+    readonly db = new PouchDB<{ event: Event }>("events");
+    @observable status: "not ready" | "ready" | "syncing" | "error" =
+      "not ready";
+
+    initLocalSync() {
+      // memory -> local db
+      observe(this.events, async (change) => {
+        if (change.type === "add") {
+          const event: Event = change.newValue;
+          try {
+            await this.db.put({ _id: event.id, event });
+          } catch (error) {
+            if (error.name !== "conflict") {
+              throw error;
+            }
+          }
+        }
+      });
+
+      // local db -> memory
       this.db
         .changes({ live: true, include_docs: true })
         .on("change", (change) => {
           const event = change.doc?.event;
           if (!event) return;
-          this.syncing = true;
-          events[event.id] = event;
-          this.lastSyncDate = new Date();
-          this.syncing = false;
+          this.events[event.id] = event;
         });
-
-      observe(events, async (change) => {
-        if (change.type === "add" && !this.syncing) {
-          const event: Event = change.newValue;
-          await this.db.put({ _id: event.id, event });
-        }
-      });
-
-      const remoteUrl = "http://localhost:5984/events";
-      this.db
-        .sync(remoteUrl)
-        .then(() => (this.ready = true))
-        .then(() => this.db.sync(remoteUrl, { live: true }));
     }
 
-    db = new PouchDB<{ event: Event }>("events");
+    async initRemoteSync() {
+      const remoteUrl = "http://localhost:5984/events";
+      await this.db.sync(remoteUrl);
 
-    @observable ready = false;
-    @observable syncing = false;
-    @observable lastSyncDate = new Date();
+      if (this.office.eventsByDate.length === 0) {
+        Node.createInitialEvents(this.office);
+      }
+
+      this.db
+        .sync(remoteUrl, { live: true, retry: true })
+        .on("paused", (err) => (this.status = err ? "error" : "ready"))
+        .on("active", () => (this.status = "syncing"));
+    }
   }
 
   class UI {
@@ -580,24 +595,12 @@ namespace Office {
   ));
 
   const SyncStatus = observer(() => {
-    if (!sync.ready) return <div className="ui-muted">Loading…</div>;
-
-    if (sync.syncing) return <div className="ui-muted">Syncing…</div>;
-
-    const time = new Intl.DateTimeFormat(undefined, {
-      hour: "numeric",
-      minute: "numeric",
-    }).format(sync.lastSyncDate);
-
-    // const dirty = office.eventsByDate.some(
-    //   (event) => !Sync.wasEventSynced(event)
-    // );
-
     return (
       <div className="ui-muted">
-        <span>Synchronized</span>
-        {/* {dirty && "*"} */}
-        <span> at {time}</span>
+        {sync.status === "not ready" && <>Initial sync…</>}
+        {sync.status === "ready" && <>Synced.</>}
+        {sync.status === "syncing" && <>Syncing…</>}
+        {sync.status === "error" && <>Sync error!</>}
       </div>
     );
   });
