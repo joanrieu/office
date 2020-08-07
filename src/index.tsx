@@ -12,15 +12,13 @@ import "./style.scss";
 
 namespace Office {
   type NodeId = string & { _type: NodeId };
+  type NodeKind = "folder" | "outline";
 
   export type Command =
     | {
-        type: "CreateFolder";
+        type: "CreateNode";
         node: NodeId;
-      }
-    | {
-        type: "CreateOutline";
-        node: NodeId;
+        kind: NodeKind;
       }
     | {
         type: "MoveNode";
@@ -43,12 +41,9 @@ namespace Office {
   export type Event = EventMeta &
     (
       | {
-          type: "FolderCreated";
+          type: "NodeCreated";
           node: NodeId;
-        }
-      | {
-          type: "OutlineCreated";
-          node: NodeId;
+          kind: NodeKind;
         }
       | {
           type: "NodeMoved";
@@ -86,10 +81,10 @@ namespace Office {
         };
       }
     | {
-        type: "GetType";
+        type: "GetKind";
         node: NodeId;
         response?: {
-          type: "outline" | "folder";
+          kind: NodeKind;
         };
       }
     | {
@@ -104,18 +99,12 @@ namespace Office {
   class Office {
     command(command: Command) {
       switch (command.type) {
-        case "CreateFolder":
+        case "CreateNode":
           this.dispatch({
             ...this.newMetadata(),
-            type: "FolderCreated",
+            type: "NodeCreated",
             node: command.node,
-          });
-          break;
-        case "CreateOutline":
-          this.dispatch({
-            ...this.newMetadata(),
-            type: "OutlineCreated",
-            node: command.node,
+            kind: command.kind,
           });
           break;
         case "MoveNode":
@@ -166,7 +155,7 @@ namespace Office {
       switch (query.type) {
         case "GetRootNode":
           for (const event of this.eventsByDate) {
-            if (event.type === "FolderCreated") {
+            if (event.type === "NodeCreated") {
               query.response = {
                 node: event.node,
               };
@@ -205,20 +194,14 @@ namespace Office {
             }
           }
           break;
-        case "GetType":
-          for (const event of this.eventsByDate) {
+        case "GetKind":
+          for (const event of this.eventsByDate.slice().reverse()) {
             if (event.node !== query.node) continue;
-            if (event.type === "FolderCreated") {
-              query.response = {
-                type: "folder",
-              };
-              break;
-            } else if (event.type === "OutlineCreated") {
-              query.response = {
-                type: "outline",
-              };
-              break;
-            }
+            if (event.type !== "NodeCreated") continue;
+            query.response = {
+              kind: event.kind,
+            };
+            break;
           }
           break;
         case "GetText":
@@ -260,24 +243,13 @@ namespace Office {
       node.name = "Drive";
     }
 
-    static create(office: Office, type: Node["type"], parent?: Node) {
+    static create(office: Office, kind: Node["kind"], parent?: Node) {
       const id = this.newId();
-      switch (type) {
-        case "folder":
-          office.command({
-            type: "CreateFolder",
-            node: id,
-          });
-          break;
-        case "outline":
-          office.command({
-            type: "CreateOutline",
-            node: id,
-          });
-          break;
-        default:
-          throw new Error("Cannot create node of type: " + type);
-      }
+      office.command({
+        type: "CreateNode",
+        node: id,
+        kind,
+      });
       if (parent) {
         office.command({
           type: "MoveNode",
@@ -375,28 +347,28 @@ namespace Office {
 
     get exists() {
       try {
-        this.type;
+        this.kind;
         return true;
       } catch (err) {
         return false;
       }
     }
 
-    get type() {
+    get kind() {
       const query: Query = {
-        type: "GetType",
+        type: "GetKind",
         node: this.id,
       };
       this.office.query(query);
-      return query.response!.type;
+      return query.response!.kind;
     }
 
     get isFolder() {
-      return this.type === "folder";
+      return this.kind === "folder";
     }
 
     get isOutline() {
-      return this.type === "outline";
+      return this.kind === "outline";
     }
 
     get nodeAbove() {
@@ -632,7 +604,7 @@ namespace Office {
       href={"#/" + node.id}
       className={classNames("OverviewItem", { active: node === ui.node })}
     >
-      <NodeIcon type={node.type} />
+      <NodeIcon kind={node.kind} />
       <NodeName node={node} />
     </a>
   ));
@@ -654,9 +626,9 @@ namespace Office {
       )
   );
 
-  const NodeIcon = observer(({ type }: { type: Node["type"] }) => (
+  const NodeIcon = observer(({ kind }: { kind: Node["kind"] }) => (
     <span className="NodeIcon">
-      <span className={type} />
+      <span className={kind} />
     </span>
   ));
 
@@ -691,7 +663,7 @@ namespace Office {
 
   const FolderViewItem = observer(({ node }: { node: Node }) => (
     <a href={"#/" + node.id} className="FolderViewItem">
-      <NodeIcon type={node.type} />
+      <NodeIcon kind={node.kind} />
       <NodeName node={node} />
     </a>
   ));
