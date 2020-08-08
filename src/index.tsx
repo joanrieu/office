@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import "minireset.css";
-import { autorun, observable, when, observe } from "mobx";
+import { autorun, observable, observe, when } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
 import PouchDB from "pouchdb";
@@ -476,22 +476,38 @@ namespace Office {
 
   class Sync {
     constructor(readonly office: Office) {
-      this.initLocalSync();
-      this.initRemoteSync();
+      this.init();
     }
 
     readonly events = this.office.eventsById;
-    readonly db = new PouchDB<{ event: Event }>("events");
-    @observable status: "not ready" | "ready" | "syncing" | "error" =
-      "not ready";
+    readonly localDb = new PouchDB<{ event: Event }>("events");
+    remoteSync: PouchDB.Replication.Sync<{ event: Event }> | null = null;
+    @observable ready = false;
+    @observable remoteConnected = false;
 
-    initLocalSync() {
-      // memory -> local db
+    async init() {
+      await this.initLocalSync();
+      this.ready = true;
+      await this.initRemoteSync();
+    }
+
+    async initLocalSync() {
+      // local db -> memory (initial sync)
+      await this.localDb
+        .changes({ include_docs: true })
+        .on("change", this.onChange.bind(this));
+
+      // local db -> memory (live sync)
+      this.localDb
+        .changes({ since: "now", live: true, include_docs: true })
+        .on("change", this.onChange.bind(this));
+
+      // memory -> local db (live sync)
       observe(this.events, async (change) => {
         if (change.type === "add") {
           const event: Event = change.newValue;
           try {
-            await this.db.put({ _id: event.id, event });
+            await this.localDb.put({ _id: event.id, event });
           } catch (error) {
             if (error.name !== "conflict") {
               throw error;
@@ -500,28 +516,38 @@ namespace Office {
         }
       });
 
-      // local db -> memory
-      this.db
-        .changes({ live: true, include_docs: true })
-        .on("change", (change) => {
-          const event = change.doc?.event;
-          if (!event) return;
-          this.events[event.id] = event;
-        });
-    }
-
-    async initRemoteSync() {
-      const remoteUrl = "http://localhost:5984/events";
-      await this.db.sync(remoteUrl);
-
+      // populate if empty
       if (this.office.eventsByDate.length === 0) {
         Node.createInitialEvents(this.office);
       }
+    }
 
-      this.db
-        .sync(remoteUrl, { live: true, retry: true })
-        .on("paused", (err) => (this.status = err ? "error" : "ready"))
-        .on("active", () => (this.status = "syncing"));
+    async initRemoteSync() {
+      if (this.remoteSync) this.remoteSync.cancel();
+      this.remoteSync = this.localDb.sync(
+        new PouchDB<{ event: Event }>("http://localhost:5984/events", {
+          fetch: (...args) => {
+            const res = fetch(...args);
+            res.then(
+              (res) => (this.remoteConnected = res.ok),
+              () => (this.remoteConnected = false)
+            );
+            return res;
+          },
+        }),
+        {
+          live: true,
+          retry: true,
+          back_off_function: (last) =>
+            Math.min(Math.max(5000, last * 2), 60000),
+        }
+      );
+    }
+
+    onChange(change: PouchDB.Core.ChangesResponseChange<{ event: Event }>) {
+      const event = change.doc?.event;
+      if (!event) return;
+      this.events[event.id] = event;
     }
   }
 
@@ -616,11 +642,15 @@ namespace Office {
 
   const SyncStatus = observer(() => {
     return (
-      <div className="ui-muted">
-        {sync.status === "not ready" && <>Initial sync…</>}
-        {sync.status === "ready" && <>Synced.</>}
-        {sync.status === "syncing" && <>Syncing…</>}
-        {sync.status === "error" && <>Sync error!</>}
+      <div className="SyncStatus">
+        {sync.remoteConnected ? (
+          <span>Connected</span>
+        ) : (
+          <>
+            <span>Not connected</span>
+            <button onClick={() => sync.initRemoteSync()}>Reset sync</button>
+          </>
+        )}
       </div>
     );
   });
@@ -828,27 +858,20 @@ namespace Office {
             autoFocus={ui.focus === node.id + ":note"}
           />
         )}
-        <OutlineViewItems nodes={node.children as Node[]} />
+        <OutlineViewItems nodes={node.children} />
       </li>
     );
   });
 
   function readUrlHash() {
     const id = document.location.hash.split("/")[1] as NodeId;
-    const node = Node.get(office, id);
-    if (node) {
-      ui.node = node;
+    if (id) {
+      ui.node = new Node(office, id);
     }
   }
 
   function writeUrlHash() {
     document.location.hash = "#/" + (ui.node?.id ?? "");
-  }
-
-  function ensureActiveNodeExists() {
-    if (!ui.node?.exists) {
-      ui.node = Node.root(office);
-    }
   }
 
   function focusFocus() {
@@ -860,19 +883,15 @@ namespace Office {
 
   function initUi() {
     when(
-      () => Boolean(Node.root(office)),
+      () => sync.ready,
       () => {
         readUrlHash();
         window.addEventListener("hashchange", readUrlHash);
         autorun(writeUrlHash);
-
-        autorun(ensureActiveNodeExists);
+        autorun(setWindowTitle);
+        autorun(focusFocus);
       }
     );
-
-    autorun(focusFocus);
-
-    autorun(setWindowTitle);
 
     render(<App />, document.getElementById("app"));
   }

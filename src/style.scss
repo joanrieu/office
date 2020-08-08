@@ -224,3 +224,16 @@ button {
     padding: 0.2em;
   }
 }
+
+.SyncStatus {
+  @extend .ui-muted;
+  display: grid;
+  grid-template-columns: 1fr auto;
+
+  align-items: end;
+
+  button {
+    @extend .clean-link;
+    font-size: 80%;
+  }
+}
