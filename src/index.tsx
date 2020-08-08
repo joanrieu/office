@@ -710,10 +710,13 @@ namespace Office {
   const EmptyPlaceholder = () => <span className="ui-muted">(empty)</span>;
 
   const FolderViewItem = observer(({ node }: { node: Node }) => (
-    <a href={"#/" + node.id} className="FolderViewItem">
-      <NodeIcon kind={node.kind} />
-      <NodeName node={node} />
-    </a>
+    <div className="FolderViewItem">
+      <a href={"#/" + node.id}>
+        <NodeIcon kind={node.kind} />
+        <NodeName node={node} />
+      </a>
+      <button onClick={() => node.delete()}>🗙</button>
+    </div>
   ));
 
   const OutlineView = observer(({ node }: { node: Node }) => {
