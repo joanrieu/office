@@ -216,6 +216,17 @@ button {
   }
 }
 
+.TextView {
+  @extend .clean-input;
+  background: white;
+  width: 100%;
+  height: 1.5em;
+  line-height: 1.5;
+  margin: 0 -0.5em;
+  padding: 0 0.5em;
+  outline: none;
+}
+
 .KeyboardShortcuts {
   font-size: 10pt;
   opacity: 0.5;

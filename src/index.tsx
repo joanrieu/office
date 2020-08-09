@@ -12,7 +12,7 @@ import "./style.scss";
 
 namespace Office {
   type NodeId = string & { _type: NodeId };
-  type NodeKind = "folder" | "outline";
+  type NodeKind = "folder" | "file" | "text" | "outline";
 
   export type Command =
     | {
@@ -288,7 +288,7 @@ namespace Office {
       node.name = "Drive";
     }
 
-    static create(office: Office, kind: Node["kind"], parent?: Node) {
+    static create(office: Office, kind: NodeKind, parent?: Node) {
       const id = this.newId();
       office.command({
         type: "CreateNode",
@@ -415,8 +415,16 @@ namespace Office {
       return this.kind === "folder";
     }
 
+    get isFile() {
+      return this.kind === "file";
+    }
+
     get isOutline() {
       return this.kind === "outline";
+    }
+
+    get isText() {
+      return this.kind === "text";
     }
 
     get nodeAbove() {
@@ -472,6 +480,25 @@ namespace Office {
         text: note,
       });
     }
+
+    get text() {
+      const query: Query = {
+        type: "GetText",
+        node: this.id,
+        field: "text",
+      };
+      this.office.query(query);
+      return query.response?.text ?? "";
+    }
+
+    set text(text: string) {
+      this.office.command({
+        type: "EditText",
+        node: this.id,
+        field: "text",
+        text,
+      });
+    }
   }
 
   class Sync {
@@ -482,12 +509,12 @@ namespace Office {
     readonly events = this.office.eventsById;
     readonly localDb = new PouchDB<{ event: Event }>("events");
     remoteSync: PouchDB.Replication.Sync<{ event: Event }> | null = null;
-    @observable ready = false;
-    @observable remoteConnected = false;
+    @observable isReady = false;
+    @observable isRemoteConnected = false;
 
     async init() {
       await this.initLocalSync();
-      this.ready = true;
+      this.isReady = true;
       await this.initRemoteSync();
     }
 
@@ -529,8 +556,8 @@ namespace Office {
           fetch: (...args) => {
             const res = fetch(...args);
             res.then(
-              (res) => (this.remoteConnected = res.ok),
-              () => (this.remoteConnected = false)
+              (res) => (this.isRemoteConnected = res.ok),
+              () => (this.isRemoteConnected = false)
             );
             return res;
           },
@@ -590,6 +617,7 @@ namespace Office {
             <h1>
               <NodeName node={ui.node} editable />
             </h1>
+            <Toolbar node={ui.node} />
             <View node={ui.node} />
           </div>
         )}
@@ -643,7 +671,7 @@ namespace Office {
   const SyncStatus = observer(() => {
     return (
       <div className="SyncStatus">
-        {sync.remoteConnected ? (
+        {sync.isRemoteConnected ? (
           <span>Connected</span>
         ) : (
           <>
@@ -704,7 +732,7 @@ namespace Office {
       )
   );
 
-  const NodeIcon = observer(({ kind }: { kind: Node["kind"] }) => (
+  const NodeIcon = observer(({ kind }: { kind: NodeKind }) => (
     <span className="NodeIcon">
       <span className={kind} />
     </span>
@@ -712,30 +740,41 @@ namespace Office {
 
   const View = observer(({ node }: { node: Node }) => {
     if (node.isFolder) return <FolderView node={node} />;
+    if (node.isFile) return <FileView node={node} />;
     if (node.isOutline) return <OutlineView node={node} />;
+    if (node.isText) return <TextView node={node} />;
     return null;
   });
 
-  const Toolbar = observer(({ children }: { children: React.ReactNode }) => (
-    <div className="Toolbar">{children}</div>
+  const Toolbar = observer(({ node }: { node: Node }) => (
+    <div className="Toolbar">
+      {node.isFolder && (
+        <>
+          <button onClick={() => Node.create(office, "folder", node)}>
+            New Folder
+          </button>
+          <button onClick={() => Node.create(office, "file", node)}>
+            New File
+          </button>
+          <button onClick={() => Node.create(office, "outline", node)}>
+            New Outline
+          </button>
+        </>
+      )}
+    </div>
   ));
 
-  const FolderView = observer(({ node }: { node: Node }) => (
-    <>
-      <Toolbar>
-        <button onClick={() => Node.create(office, "folder", node)}>
-          New Folder
-        </button>
-        <button onClick={() => Node.create(office, "outline", node)}>
-          New Outline
-        </button>
-      </Toolbar>
-      {node.children.map((child) => (
-        <FolderViewItem key={child.id} node={child} />
-      ))}
-      {node.children.length === 0 && <EmptyPlaceholder />}
-    </>
-  ));
+  const FolderView = observer(({ node }: { node: Node }) =>
+    node.children.length ? (
+      <>
+        {node.children.map((child) => (
+          <FolderViewItem key={child.id} node={child} />
+        ))}
+      </>
+    ) : (
+      <EmptyPlaceholder />
+    )
+  );
 
   const EmptyPlaceholder = () => <span className="ui-muted">(empty)</span>;
 
@@ -749,9 +788,25 @@ namespace Office {
     </div>
   ));
 
+  const FileView = ({ node }: { node: Node }) => {
+    useEffect(() => {
+      if (node.children.length === 0) {
+        const child = Node.create(office, "text", node);
+        ui.focus = child.id + ":text";
+      }
+    });
+    return (
+      <>
+        {node.children.map((child) => (
+          <View key={node.id} node={child} />
+        ))}
+      </>
+    );
+  };
+
   const OutlineView = observer(({ node }: { node: Node }) => {
     useEffect(() => {
-      if (!node.children.length) {
+      if (node.children.length === 0) {
         const child = Node.create(office, "outline", node);
         ui.focus = child.id + ":name";
       }
@@ -863,6 +918,38 @@ namespace Office {
     );
   });
 
+  const TextView = observer(({ node }: { node: Node }) =>
+    node.id === ui.focus ? (
+      <textarea
+        className="TextView"
+        data-focus={node.id + ":text"}
+        defaultValue={node.text}
+        onChange={(event) => (node.text = event.target.value)}
+        autoFocus
+        onBlur={() => ui.focus === node.id && (ui.focus = null)}
+      />
+    ) : (
+      <p
+        data-focus={node.id + ":text"}
+        onClick={() => (ui.focus = node.id)}
+        dangerouslySetInnerHTML={{ __html: markup(node.text) }}
+      >
+        {node.text ? null : <EmptyPlaceholder />}
+      </p>
+    )
+  );
+
+  function markup(text: string) {
+    const span = document.createElement("span");
+    span.innerText = text;
+    let html = span.innerHTML;
+    html = html.replace(/(^|\s)\*\*(\w)/g, "$1<strong>$2");
+    html = html.replace(/(\w)\*\*(\s|$)/g, "$1</strong>$2");
+    html = html.replace(/(^|\s)\*(\w)/g, "$1<em>$2");
+    html = html.replace(/(\w)\*(\s|$)/g, "$1</em>$2");
+    return html;
+  }
+
   function readUrlHash() {
     const id = document.location.hash.split("/")[1] as NodeId;
     if (id) {
@@ -883,7 +970,7 @@ namespace Office {
 
   function initUi() {
     when(
-      () => sync.ready,
+      () => sync.isReady,
       () => {
         readUrlHash();
         window.addEventListener("hashchange", readUrlHash);
