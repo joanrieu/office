@@ -1,11 +1,9 @@
 html,
 body,
-#app {
-  height: 100%;
-}
-
-#app {
+#root {
   display: grid;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -147,15 +145,15 @@ button {
 .NodeIcon {
   place-self: center;
   line-height: 0;
-  margin-top: -0.1em;
+
+  ::before {
+    content: "🗎";
+    font-size: 125%;
+  }
 
   .folder::before {
     content: "🖿";
-  }
-
-  .outline::before {
-    content: "🗎";
-    font-size: 125%;
+    font-size: 100%;
   }
 }
 

@@ -609,10 +609,10 @@ namespace Office {
           <Overview />
           <div>
             <SyncStatus />
-            <KeyboardShortcuts />
+            {ui.node?.exists && <KeyboardShortcuts node={ui.node} />}
           </div>
         </div>
-        {ui.node && (
+        {ui.node?.exists && (
           <div>
             <h1>
               <NodeName node={ui.node} editable />
@@ -627,10 +627,10 @@ namespace Office {
 
   const Logo = () => <div className="Logo">Office</div>;
 
-  const KeyboardShortcuts = observer(() => (
+  const KeyboardShortcuts = observer(({ node }: { node: Node }) => (
     <table className="KeyboardShortcuts">
       <tbody>
-        {ui.node?.isOutline && (
+        {node.isOutline && (
           <>
             <tr>
               <td>
@@ -761,6 +761,15 @@ namespace Office {
           </button>
         </>
       )}
+      {node.isOutline && (
+        <button
+          onClick={() =>
+            (ui.focus = Node.create(office, "outline", node).id + ":name")
+          }
+        >
+          New Item
+        </button>
+      )}
     </div>
   ));
 
@@ -788,31 +797,17 @@ namespace Office {
     </div>
   ));
 
-  const FileView = ({ node }: { node: Node }) => {
-    useEffect(() => {
-      if (node.children.length === 0) {
-        const child = Node.create(office, "text", node);
-        ui.focus = child.id + ":text";
-      }
-    });
-    return (
-      <>
-        {node.children.map((child) => (
-          <View key={node.id} node={child} />
-        ))}
-      </>
-    );
-  };
+  const FileView = ({ node }: { node: Node }) => (
+    <>
+      {node.children.map((child) => (
+        <View key={node.id} node={child} />
+      ))}
+    </>
+  );
 
-  const OutlineView = observer(({ node }: { node: Node }) => {
-    useEffect(() => {
-      if (node.children.length === 0) {
-        const child = Node.create(office, "outline", node);
-        ui.focus = child.id + ":name";
-      }
-    });
-    return <OutlineViewItems nodes={node.children} />;
-  });
+  const OutlineView = observer(({ node }: { node: Node }) => (
+    <OutlineViewItems nodes={node.children} />
+  ));
 
   const OutlineViewItems = observer(({ nodes }: { nodes: Node[] }) => (
     <ul className="OutlineViewItems">
@@ -928,13 +923,20 @@ namespace Office {
         autoFocus
         onBlur={() => ui.focus === node.id && (ui.focus = null)}
       />
+    ) : node.text ? (
+      <p
+        data-focus={node.id + ":text"}
+        onClick={() => (ui.focus = node.id)}
+        onFocus={() => (ui.focus = node.id)}
+        dangerouslySetInnerHTML={{ __html: markup(node.text) }}
+      />
     ) : (
       <p
         data-focus={node.id + ":text"}
         onClick={() => (ui.focus = node.id)}
-        dangerouslySetInnerHTML={{ __html: markup(node.text) }}
+        onFocus={() => (ui.focus = node.id)}
       >
-        {node.text ? null : <EmptyPlaceholder />}
+        <EmptyPlaceholder />
       </p>
     )
   );
@@ -943,10 +945,10 @@ namespace Office {
     const span = document.createElement("span");
     span.innerText = text;
     let html = span.innerHTML;
-    html = html.replace(/(^|\s)\*\*(\w)/g, "$1<strong>$2");
-    html = html.replace(/(\w)\*\*(\s|$)/g, "$1</strong>$2");
-    html = html.replace(/(^|\s)\*(\w)/g, "$1<em>$2");
-    html = html.replace(/(\w)\*(\s|$)/g, "$1</em>$2");
+    html = html.replace(/(^|\s)\*\*([^\s])/g, "$1<strong>$2");
+    html = html.replace(/([^\s])\*\*(\s|$)/g, "$1</strong>$2");
+    html = html.replace(/(^|\s)\*([^\s])/g, "$1<em>$2");
+    html = html.replace(/([^\s])\*(\s|$)/g, "$1</em>$2");
     return html;
   }
 
@@ -954,6 +956,8 @@ namespace Office {
     const id = document.location.hash.split("/")[1] as NodeId;
     if (id) {
       ui.node = new Node(office, id);
+    } else {
+      ui.node = Node.root(office);
     }
   }
 
@@ -980,7 +984,7 @@ namespace Office {
       }
     );
 
-    render(<App />, document.getElementById("app"));
+    render(<App />, document.getElementById("root"));
   }
 
   initUi();
