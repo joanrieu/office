@@ -1,4 +1,4 @@
-import { observable, observe } from "mobx";
+import { autorun, observable, observe } from "mobx";
 import PouchDB from "pouchdb";
 import { Node } from "./Node";
 import { Office } from "./Office";
@@ -9,7 +9,6 @@ export class Sync {
     this.init();
   }
 
-  readonly events = this.office.eventsById;
   readonly localDb = new PouchDB<{ event: Event }>("events");
   remoteSync: PouchDB.Replication.Sync<{ event: Event }> | null = null;
   @observable isReady = false;
@@ -22,34 +21,54 @@ export class Sync {
   }
 
   async initLocalSync() {
+    const batchedDbEvents = observable.array<Event>();
+    const batchedMemoryEvents = observable.array<Event>();
+
     // local db -> memory (initial sync)
     await this.localDb
       .changes({ include_docs: true })
-      .on("change", this.onChange.bind(this));
+      .on("change", (change) => batchedDbEvents.push(change.doc!.event));
+    if (batchedDbEvents.length === 0) {
+      Node.createInitialEvents(this.office);
+    }
 
     // local db -> memory (live sync)
     this.localDb
       .changes({ since: "now", live: true, include_docs: true })
-      .on("change", this.onChange.bind(this));
+      .on("change", (change) => batchedDbEvents.push(change.doc!.event));
 
     // memory -> local db (live sync)
-    observe(this.events, async (change) => {
+    observe(this.office.eventsById, async (change) => {
       if (change.type === "add") {
-        const event: Event = change.newValue;
-        try {
-          await this.localDb.put({ _id: event.id, event });
-        } catch (error) {
-          if (error.name !== "conflict") {
-            throw error;
-          }
-        }
+        batchedMemoryEvents.push(change.newValue);
       }
     });
 
-    // populate if empty
-    if (this.office.eventsByDate.length === 0) {
-      Node.createInitialEvents(this.office);
-    }
+    // commit to memory
+    autorun(
+      () => {
+        batchedDbEvents.forEach(
+          (event) => (this.office.eventsById[event.id] = event)
+        );
+        batchedDbEvents.clear();
+      },
+      {
+        delay: 1,
+      }
+    );
+
+    // commit to db
+    autorun(
+      () => {
+        this.localDb.bulkDocs(
+          batchedMemoryEvents.map((event) => ({ _id: event.id, event }))
+        );
+        batchedMemoryEvents.clear();
+      },
+      {
+        delay: 1,
+      }
+    );
   }
 
   async initRemoteSync() {
@@ -71,11 +90,5 @@ export class Sync {
         back_off_function: (last) => Math.min(Math.max(5000, last * 2), 60000),
       }
     );
-  }
-
-  onChange(change: PouchDB.Core.ChangesResponseChange<{ event: Event }>) {
-    const event = change.doc?.event;
-    if (!event) return;
-    this.events[event.id] = event;
   }
 }
