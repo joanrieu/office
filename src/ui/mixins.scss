@@ -1,0 +1,30 @@
+@mixin ui-font {
+  font-size: 11pt;
+}
+
+@mixin ui-panel {
+  @include ui-font;
+  padding: 1vmin 2vmin;
+  color: #333;
+  background-color: #ddd;
+  border: 0px solid #bbb;
+}
+
+@mixin ui-muted {
+  @include ui-font;
+  color: #bbb;
+}
+
+@mixin clean-link {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+@mixin clean-input {
+  color: inherit;
+  background: inherit;
+  border: inherit;
+  font: inherit;
+  width: 100%;
+  resize: none;
+}

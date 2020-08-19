@@ -1,0 +1,28 @@
+@import "../mixins.scss";
+
+.App {
+  display: grid;
+  grid-template-columns: 15em auto;
+  overflow: hidden;
+
+  > :nth-child(1) {
+    @include ui-panel;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+    border-right-width: 1px;
+
+    > :nth-child(2) {
+      overflow: auto;
+    }
+  }
+
+  > :nth-child(2) {
+    padding: 5vmin;
+    overflow: auto;
+
+    > h1 {
+      font-size: 2em;
+    }
+  }
+}

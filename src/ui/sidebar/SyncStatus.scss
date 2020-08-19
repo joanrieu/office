@@ -1,0 +1,14 @@
+@import "../mixins.scss";
+
+.SyncStatus {
+  @include ui-muted;
+  display: grid;
+  grid-template-columns: 1fr auto;
+
+  align-items: end;
+
+  button {
+    @include clean-link;
+    font-size: 80%;
+  }
+}

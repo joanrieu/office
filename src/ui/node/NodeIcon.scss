@@ -1,0 +1,14 @@
+.NodeIcon {
+  place-self: center;
+  line-height: 0;
+
+  ::before {
+    content: "🗎";
+    font-size: 125%;
+  }
+
+  .folder::before {
+    content: "🖿";
+    font-size: 100%;
+  }
+}

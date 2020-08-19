@@ -1,0 +1,33 @@
+@import "../mixins.scss";
+
+.FolderViewItem {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-gap: 1em;
+
+  a {
+    grid-row: 1;
+    @include clean-link;
+    grid-column: 1 / span 2;
+    display: grid;
+    grid-template-columns: 1em 1fr;
+    grid-gap: 1em;
+    padding: 0.5em 1em;
+
+    &:hover {
+      background-color: #ddd;
+    }
+
+    .NodeIcon {
+      font-size: 150%;
+    }
+  }
+
+  button {
+    grid-row: 1;
+    grid-column: 2;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+}
