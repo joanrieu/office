@@ -7,13 +7,17 @@ export const SyncStatus = observer(() => {
   const sync = useSync();
   return (
     <div className="SyncStatus">
-      {sync.isRemoteConnected ? (
-        <span>Connected</span>
+      {sync.isReady ? (
+        sync.isOnline ? (
+          <span>Online</span>
+        ) : (
+          <>
+            <span>Offline</span>
+            <button onClick={() => sync.initRemoteSync()}>Force sync</button>
+          </>
+        )
       ) : (
-        <>
-          <span>Not connected</span>
-          <button onClick={() => sync.initRemoteSync()}>Reset sync</button>
-        </>
+        <span>Loading...</span>
       )}
     </div>
   );
