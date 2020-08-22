@@ -1,30 +1,30 @@
-@mixin ui-font {
+@mixin font-logo {
+  font-size: 14pt;
+}
+
+@mixin font-ui {
   font-size: 11pt;
 }
 
-@mixin ui-panel {
-  @include ui-font;
-  padding: 1vmin 2vmin;
-  color: #333;
-  background-color: #ddd;
-  border: 0px solid #bbb;
+@mixin font-ui-small {
+  font-size: 10pt;
+  font-weight: 300;
 }
 
-@mixin ui-muted {
-  @include ui-font;
-  color: #bbb;
+@mixin font-h1 {
+  font-size: 32pt;
+  font-weight: 300;
+}
+
+@mixin font-p {
+  font-size: 16pt;
+}
+
+@mixin font-p-small {
+  font-size: 12pt;
+  font-weight: 300;
 }
 
 @mixin clean-link {
-  color: inherit;
   text-decoration: inherit;
-}
-
-@mixin clean-input {
-  color: inherit;
-  background: inherit;
-  border: inherit;
-  font: inherit;
-  width: 100%;
-  resize: none;
 }

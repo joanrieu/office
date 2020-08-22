@@ -2,15 +2,17 @@
 
 .App {
   display: grid;
-  grid-template-columns: 15em auto;
+  grid-template-columns: 1fr 3fr;
   overflow: hidden;
 
   > :nth-child(1) {
-    @include ui-panel;
+    @include font-ui;
     display: grid;
     grid-template-rows: auto 1fr auto;
     overflow: hidden;
-    border-right-width: 1px;
+    color: #666;
+    background-color: #ddd;
+    border-right: 1px solid #bbb;
 
     > :nth-child(2) {
       overflow: auto;
@@ -18,11 +20,11 @@
   }
 
   > :nth-child(2) {
-    padding: 5vmin;
+    padding: 2rem 1rem;
     overflow: auto;
 
     > h1 {
-      font-size: 2em;
+      @include font-h1;
     }
   }
 }

@@ -5,20 +5,26 @@ import "./SyncStatus.scss";
 
 export const SyncStatus = observer(() => {
   const sync = useSync();
+
   return (
-    <div className="SyncStatus">
+    <button
+      onClick={() => sync.initRemoteSync()}
+      title="Force sync"
+      className={
+        "SyncStatus " +
+        (sync.isReady ? (sync.isOnline ? "online" : "offline") : "loading")
+      }
+      disabled={!sync.isReady}
+    >
       {sync.isReady ? (
         sync.isOnline ? (
           <span>Online</span>
         ) : (
-          <>
-            <span>Offline</span>
-            <button onClick={() => sync.initRemoteSync()}>Force sync</button>
-          </>
+          <span>Offline</span>
         )
       ) : (
         <span>Loading...</span>
       )}
-    </div>
+    </button>
   );
 });

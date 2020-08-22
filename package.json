@@ -2,10 +2,12 @@
   "name": "office",
   "version": "1.0.0",
   "scripts": {
-    "start": "parcel serve src/index.html"
+    "start": "parcel serve src/index.html",
+    "db": "cd db/ && pouchdb-server -m"
   },
   "dependencies": {
     "classnames": "^2.2.6",
+    "fontsource-roboto": "^3.0.3",
     "minireset.css": "0.0.6",
     "mobx": "^5.15.4",
     "mobx-react": "^6.2.2",

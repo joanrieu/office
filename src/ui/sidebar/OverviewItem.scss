@@ -2,12 +2,15 @@
 
 .OverviewItem {
   @include clean-link;
-  display: grid;
-  grid-template-columns: 2em auto;
-  border-radius: 2px;
+  display: block;
+  padding: 0.1rem 0;
 
   &.active,
   &:hover {
     background-color: #ccc;
+  }
+
+  .NodeIcon {
+    margin-right: 0.2rem;
   }
 }

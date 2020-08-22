@@ -10,24 +10,26 @@
   > .bullet {
     grid-area: bullet;
     place-self: center;
-    width: 8px;
-    height: 8px;
-    border-radius: 3px;
+    width: 0.4em;
+    height: 0.2em;
+    border-radius: 0.2em;
+    margin-top: 0.2em;
     background-color: #bbb;
   }
 
+  > .name,
+  > .note {
+    padding: 0.2rem;
+  }
+
   > .name {
-    @include clean-input;
     grid-area: text;
-    padding: 0.2em;
-    margin: -0.2em -0.2em 0 0;
     white-space: pre-wrap;
   }
 
   > .note {
-    @include clean-input;
+    @include font-p-small;
     grid-area: note;
-    font-size: 11pt;
     white-space: pre-wrap;
   }
 }

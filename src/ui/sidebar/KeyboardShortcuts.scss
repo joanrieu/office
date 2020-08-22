@@ -1,8 +1,11 @@
-.KeyboardShortcuts {
-  font-size: 10pt;
-  opacity: 0.5;
+@import "../mixins.scss";
 
-  td {
-    padding: 0.2em;
+.KeyboardShortcuts {
+  @include font-ui-small;
+  padding: 1rem;
+  border-top: 1px solid #bbb;
+
+  kbd {
+    font-family: monospace;
   }
 }

@@ -1,7 +1,6 @@
 @import "./mixins.scss";
 
 .TextView {
-  @include clean-input;
   background: white;
   width: 100%;
   height: 1.5em;

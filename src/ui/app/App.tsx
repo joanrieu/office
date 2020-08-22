@@ -18,8 +18,8 @@ export const App = observer(() => {
         <AppLogo />
         <Overview />
         <div>
-          <SyncStatus />
           {node?.exists && <KeyboardShortcuts node={node} />}
+          <SyncStatus />
         </div>
       </div>
       {node?.exists && (

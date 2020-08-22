@@ -1,7 +1,8 @@
+@import "../mixins.scss";
+
 .AppLogo {
-  padding: 0.5em;
-  opacity: 0.2;
-  font-size: 2em;
+  @include font-logo;
+  margin: 0.5rem 1rem;
   font-weight: bold;
   letter-spacing: 0.3em;
   text-align: center;

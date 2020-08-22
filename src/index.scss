@@ -1,4 +1,13 @@
+@import "fontsource-roboto/300.css";
+@import "fontsource-roboto/400.css";
 @import "./ui/mixins.scss";
+
+:root {
+  @include font-p;
+  font-family: "Roboto", sans-serif;
+  color: #222;
+  background-color: #eee;
+}
 
 html,
 body,
@@ -8,20 +17,20 @@ body,
   overflow: hidden;
 }
 
-body {
-  font-family: sans-serif;
-  font-size: 16pt;
-  line-height: 1.5;
-  color: #222;
-  background-color: #eee;
+* {
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
 }
 
 button {
-  @include ui-font;
+  @include font-ui;
   background-color: #ddd;
   border: 1px solid #bbb;
   border-radius: 2px;
-  padding: 0.5em 1em;
+  padding: 0.4em 0.8em;
 
   &:hover {
     background-color: #e5e5e5;
@@ -30,4 +39,14 @@ button {
   &:active {
     background-color: #bbb;
   }
+}
+
+input,
+textarea {
+  width: 100%;
+  resize: none;
+}
+
+table {
+  width: 100%;
 }
