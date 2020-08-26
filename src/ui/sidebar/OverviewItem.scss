@@ -1,9 +1,10 @@
-@import "../mixins.scss";
+@import "../fonts.scss";
 
 .OverviewItem {
-  @include clean-link;
   display: block;
   padding: 0.1rem 0;
+  margin-left: -0.5em;
+  padding-left: 0.5em;
 
   &.active,
   &:hover {
