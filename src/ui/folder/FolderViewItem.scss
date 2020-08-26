@@ -1,4 +1,4 @@
-@import "../mixins.scss";
+@import "../fonts.scss";
 
 .FolderViewItem {
   display: grid;
@@ -16,7 +16,6 @@
 
   a {
     grid-row: 1;
-    @include clean-link;
     grid-column: 1 / span 2;
     display: grid;
     grid-template-columns: 1rem 1fr;

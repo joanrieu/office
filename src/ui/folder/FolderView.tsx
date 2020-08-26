@@ -1,7 +1,7 @@
 import { observer } from "mobx-react";
 import React from "react";
 import { Node } from "../../core/Node";
-import { EmptyPlaceholder } from "../EmptyPlaceholder";
+import { EmptyFolderPlaceholder } from "../placeholders/EmptyFolderPlaceholder";
 import { FolderViewItem } from "./FolderViewItem";
 
 export const FolderView = observer(({ node }: { node: Node }) =>
@@ -12,6 +12,6 @@ export const FolderView = observer(({ node }: { node: Node }) =>
       ))}
     </>
   ) : (
-    <EmptyPlaceholder />
+    <EmptyFolderPlaceholder />
   )
 );

@@ -1,13 +1,4 @@
-@import "fontsource-roboto/300.css";
-@import "fontsource-roboto/400.css";
-@import "./ui/mixins.scss";
-
-:root {
-  @include font-p;
-  font-family: "Roboto", sans-serif;
-  color: #222;
-  background-color: #eee;
-}
+@import "./ui/fonts.scss";
 
 html,
 body,
@@ -20,6 +11,7 @@ body,
 * {
   box-sizing: border-box;
   font: inherit;
+  text-decoration: inherit;
   color: inherit;
   background: transparent;
   border: none;

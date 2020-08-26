@@ -1,0 +1,21 @@
+@import "../fonts.scss";
+
+.EmptyFolderPlaceholder {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  opacity: 0.3;
+
+  > :first-child {
+    grid-area: 1 / 1;
+    width: 5rem;
+    margin: 0 2rem 0.5rem 5rem;
+  }
+
+  > :last-child {
+    grid-area: 2 / 2;
+    place-self: start;
+    @include font-cursive();
+    text-align: center;
+    transform: rotate(-3deg);
+  }
+}

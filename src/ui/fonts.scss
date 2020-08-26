@@ -1,3 +1,7 @@
+@import "fontsource-roboto/300.css";
+@import "fontsource-roboto/400.css";
+@import "fontsource-indie-flower/400.css";
+
 @mixin font-logo {
   font-size: 14pt;
 }
@@ -25,6 +29,14 @@
   font-weight: 300;
 }
 
-@mixin clean-link {
-  text-decoration: inherit;
+@mixin font-cursive {
+  font-family: "Indie Flower", cursive;
+  font-size: 24pt;
+}
+
+:root {
+  @include font-p;
+  font-family: "Roboto", sans-serif;
+  color: #222;
+  background-color: #eee;
 }

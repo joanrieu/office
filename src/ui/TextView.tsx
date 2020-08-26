@@ -2,7 +2,7 @@ import { observer } from "mobx-react";
 import React from "react";
 import { Node } from "../core/Node";
 import { useFocus } from "./context/useFocus";
-import { EmptyPlaceholder } from "./EmptyPlaceholder";
+import { EmptyFolderPlaceholder } from "./placeholders/EmptyFolderPlaceholder";
 import "./TextView.scss";
 
 export function markup(text: string) {
@@ -40,7 +40,7 @@ export const TextView = observer(({ node }: { node: Node }) => {
       onClick={() => setFocus(node.id + ":text")}
       onFocus={() => setFocus(node.id + ":text")}
     >
-      <EmptyPlaceholder />
+      <EmptyFolderPlaceholder />
     </p>
   );
 });
